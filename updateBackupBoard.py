@@ -44,4 +44,4 @@ pp(paths)
 for b  in [ x for x in api.get_user_boards() if 'backup' in x.title.lower() ]:
 	for swinlane in  [ x.title for x in b.get_swimlanes() if 'backup' in x.title.lower() ]:
 		for l in [ x for x in b.get_cardslists() if 'JOBS' in x.title ]:
-			l.add_card("teste")
+			print l.add_card("teste")
