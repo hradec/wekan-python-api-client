@@ -29,6 +29,6 @@ class WekanApi:
         self.token = api_login["token"]
         self.user_id = api_login["id"]
 
-    def get_user_boards(self):
+    def get_user_boards(self, filter=''):
         boards_data = self.api_call("/api/users/{}/boards".format(self.user_id))
-        return [Board(self, board_data) for board_data in boards_data]
+        return [Board(self, board_data) for board_data in boards_data if filter in board_data["title"]]
