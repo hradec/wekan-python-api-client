@@ -13,7 +13,7 @@ api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open("userpasswd.t
 
 jobs=[]
 d={}
-for b  in [ x for x in api.get_user_boards() if 'backup' in x.title.lower() ]:
+for b  in api.get_user_boards('BACKUP'):
 	d[b.title] = {}
 	d[b.title][".class"] = b
 	for list in b.get_cardslists():
@@ -41,7 +41,7 @@ pp(paths)
 
 
 
-for b  in [ x for x in api.get_user_boards() if 'backup' in x.title.lower() ]:
-	for swinlane in  [ x.title for x in b.get_swimlanes() if 'backup' in x.title.lower() ]:
-		for l in [ x for x in b.get_cardslists() if 'JOBS' in x.title ]:
-			print l.add_card("teste")
+for b  in api.get_user_boards('BACKUP'):
+	for l in b.get_cardslists('JOBS'):
+		for p in paths:
+			l.add_card(p)
