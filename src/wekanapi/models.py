@@ -92,10 +92,9 @@ class Cardslist:
             'authorId': user_id,
             'swimlaneId': swimlane,
             }
-        card = self.api.api_call("/api/boards/{}/lists/{}/cards".format(self.board.id, self.id), data)
+        id = self.api.api_call("/api/boards/{}/lists/{}/cards".format(self.board.id, self.id), data)
         # return the newly created card
-        return Card(self.api, self, card)
-
+        return self.get_cards( id['_id'] )
 
 class Card:
     def __init__(self, api, cardslist, card_data):
