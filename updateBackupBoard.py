@@ -24,9 +24,10 @@ for b  in api.get_user_boards('BACKUP'):
 		for card in list.get_cards():
 			d[b.title][list.title][card.title]=card
 			jobs.append(card.title)
-			cards[ card.title.split('\n')[0] ] = card
+			cards[ card.title.split('\n')[0].replace("*","") ] = card
 
 
+toRemove=[]
 paths=[]
 j=''.join(jobs)
 for p in glob("/atomo/jobs/*"):
@@ -35,24 +36,36 @@ for p in glob("/atomo/jobs/*"):
 		p = os.readlink(p)
 	p = p.rstrip('/')
 	jobNumber = int(os.path.basename(p).split('.')[0])
+	if not os.path.exists(p):
+		toRemove.append(p)
 	if jobNumber < 9000 and jobNumber > 0:
-		hasCard = os.path.basename(p) in j
+		print p
+		size=''.join(os.popen("du -shc %s 2>/dev/null | grep total" % p).readlines()).split()[0].strip()
+		disco=os.path.dirname(p)
+		mover=""
+		posicao=""
+		title="**%s**" % os.path.basename(p)
+		title+="\n>disco: %s" % disco
+		title+="\nmover: %s" % mover
+		title+="\nposicao: %s" % posicao
+		title+="\ntamanho: %s" % size
 		# if a card exists
+		hasCard = os.path.basename(p) in j
 		if hasCard:
-			print p
-			size=''.join(os.popen("du -shc %s | grep total" % p).readlines()).split()[0].strip()
-			disco=os.path.dirname(p)
-			mover=""
-			posicao=""
-			title=os.path.basename(p)
-			title+="\ndisco: %s" % disco
-			title+="\nmover: %s" % mover
-			title+="\nposicao: %s" % posicao
-			title+="\ntamanho: %s" % size
-			cards[ os.path.basename(p) ].modify( title=title )
+			try:
+				cards[ os.path.basename(p) ].modify( title=title )
+			except:
+				print "Error updating card for %s!!" % p
 
 		# or else create a new card
-		# else:
-		# 	for b  in api.get_user_boards('BACKUP'):
-		# 		for l in b.get_cardslists('JOBS'):
-		# 			l.add_card(os.path.basename(p))
+		else:
+		 	for b  in api.get_user_boards('BACKUP'):
+		 		for l in b.get_cardslists('JOBS'):
+		 			l.add_card(title)
+
+
+print "\nThe following jobs don't exist:"
+for n in toRemove:
+	print '\t%s' % n
+
+print
