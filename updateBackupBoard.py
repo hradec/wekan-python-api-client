@@ -8,7 +8,7 @@ from pprint import pprint as pp
 from glob import glob
 import os
 
-api = WekanApi("http://atomovfx.hradec.com/wekan", eval(''.join(open("userpasswd.txt").readlines())), )
+api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open("userpasswd.txt").readlines())), )
 
 
 jobs=[]
@@ -22,8 +22,6 @@ for b  in [ x for x in api.get_user_boards() if 'backup' in x.title.lower() ]:
 		for card in list.get_cards():
 			d[b.title][list.title][card.title]=card
 			jobs.append(card.title)
-
-
 
 
 pp(d)
@@ -41,5 +39,9 @@ for p in glob("/atomo/jobs/*"):
 paths.sort()
 pp(paths)
 
-import wekanapi
-print wekanapi.__file__
+
+
+for b  in [ x for x in api.get_user_boards() if 'backup' in x.title.lower() ]:
+	for swinlane in  [ x.title for x in b.get_swimlanes() if 'backup' in x.title.lower() ]:
+		for l in [ x for x in b.get_cardslists() if 'JOBS' in x.title ]:
+			l.add_card("teste")
