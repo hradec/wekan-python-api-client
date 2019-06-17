@@ -125,13 +125,15 @@ class Card:
             return self.modify()
         return False
 
-    def modify(self, title="", description="", data=None):
+    def modify(self, title="", description="", data=None, **args):
         if title:
             self.data['title']=title
         if description:
             self.data['description']=description
         if data:
             self.data=data
+        for arg in args:
+            self.data[arg] = args[arg]
 
         try:
             id = self.api.api_call("/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id), self.data, put=True)
