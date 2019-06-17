@@ -76,7 +76,7 @@ for p in glob("/atomo/jobs/*")+glob("/.LIZARDFS/atomo/jobs/*")+glob("/.MOOSEFS/a
 			title="**%s**" % os.path.basename(p)
 			title+="\n>disco: %s" % disco
 			title+="\nmover: %s" % mover
-			title+="\nposicao: %s" % posicao
+			title+="\nposicao: **%s**" % posicao
 			title+="\ntamanho: %s" % size
 			print title
 
