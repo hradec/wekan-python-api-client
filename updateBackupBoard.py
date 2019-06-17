@@ -8,6 +8,12 @@ from pprint import pprint as pp
 from glob import glob
 import os
 
+lock = "/tmp/.%s.lock" % os.path.basename(__file__)
+if os.path.exists(lock) :
+	sys.exit(0)
+else:
+	open( lock, "w" ).close()
+
 api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open("userpasswd.txt").readlines())), )
 
 
@@ -107,3 +113,6 @@ for n in toRemove:
 	print '\t%s' % n
 
 print
+
+if os.path.exists(lock) :
+	os.remove( lock )
