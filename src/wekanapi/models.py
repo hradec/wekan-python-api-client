@@ -118,16 +118,26 @@ class Card:
         return [Checklist(self.api, self, checklist_data) for checklist_data in checklists_data]
 
 
+    def setList(self, listName):
+        l = self.cardslist.board.get_cardslists( listName )
+        if l:
+            self.cardslist = l[0]
+            return self.modify()
+        return False
+
     def modify(self, title="", description="", data=None):
         if title:
             self.data['title']=title
         if description:
             self.data['description']=description
         if data:
-            self.data['description']=data
+            self.data=data
 
-        print self.data
-        print self.api.api_call("/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id), self.data, put=True)
+        try:
+            id = self.api.api_call("/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id), self.data, put=True)
+        except:
+            return False
+        return True
 
     def pprint(self, indent=0):
         pprint = "{}- {}".format("  " * indent, self.title)
