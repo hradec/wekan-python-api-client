@@ -6,8 +6,9 @@ sys.path.insert(0, os.path.dirname(__file__)+"/src/" )
 from wekanapi import WekanApi
 from pprint import pprint as pp
 from glob import glob
-import random
+import random, time
 import os
+
 
 processes = os.popen("ps -AHfc | grep update | grep -v grep | grep -v tail").readlines()
 print len(processes), processes
@@ -105,7 +106,8 @@ for job in repetidos.keys():
 			os.popen( 'du -shc %s 2>/dev/null | grep total > %s ' % ( p, l ) )
 
 		if not os.path.exists(lm) or ( ( time.time() - int(os.stat(lm)[-1]) ) /60 /60 ) > 24  or  os.stat( lm )[6] == 0:
-			os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 | date -d@$(awk '{print $1}') 2>/dev/null  >  %s" % ( p, lm ) )
+			# os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 | date -d@$(awk '{print $1}') 2>/dev/null  >  %s" % ( p, lm ) )
+			os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s" % ( p, lm ) )
 
 		size= ''.join(open( l ).readlines()).split()[0].strip()
 		disco=os.path.dirname(p)
@@ -113,15 +115,48 @@ for job in repetidos.keys():
 		posicao=""
 		last_modified=""
 		extra=""
+		months=0
 
 		if os.path.exists( lm ):
-			d=''.join(open( lm ).readlines()).strip().split()
-			last_modified = "modificado em: %s %s %s" % ( d[1], d[2], d[-1] ) 
+			epoch=''.join(open( lm ).readlines()).strip().split()
+			if len(epoch) > 1:
+				secs = time.time()-float(epoch[0])
+				(months, remainder) = divmod(secs, 86400*30)
+				(days, remainder) = divmod(remainder, 86400)
+				(hours, remainder) = divmod(remainder, 60*60)
+				(mins, remainder) = divmod(remainder, 60)
+				color="green"
+
+				dias = "%s dias" % int(days)
+				if days == 1:
+					dias = "%s dia" % int(days)
+				elif days == 0:
+					if hours>0:
+						dias = "%s horas" % int(hours)
+					else:
+						dias = "%s minutos" % int(mins)
+
+				meses = "%s meses " % int(months)
+				if int(months) > 5:
+					color="red"
+				elif int(months) > 1:
+					color="orange"
+				elif int(months) == 1:
+					meses = "%s mes " % int(months)
+				elif int(months) == 0:
+					meses=""
+				last_modified = '\nmodificado a:**<font color="%s"> %s%s</font>**' % ( color, meses, dias )
 
 		hasCard = os.path.basename(p) in j
 		if hasCard:
 			if cards[ os.path.basename(p) ].cardslist.title == "JOBS":
-				posicao = "**em producao**"
+				if months < 2:
+					posicao = "**em producao**"
+				elif months < 3:
+					posicao = '**parado...**'
+				else:
+					posicao = '**<font color="red">Fazer Backup?</font>**'
+
 			elif "LIZARD" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
 				if [ x for x in repetidos[job] if 'LIZARD' in x ]:
@@ -158,15 +193,34 @@ for job in repetidos.keys():
 		elif 'terminado' in posicao:
 			posicao += ' <img src="https://thumbs.gfycat.com/ShyCautiousAfricanpiedkingfisher-size_restricted.gif" width=12 height=12>'
 
+		elif 'parado' in posicao:
+			posicao += ' <img src="https://static.wixstatic.com/media/5c6573_1072137d8e4d4d60ab1a91a0e861da09~mv2.gif" width=80 height=16>'
+
+		elif 'backup' in posicao.lower():
+			posicao += '   '
+			posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
+
+		# elif 'producao' in posicao:
+		# 	posicao += ' <img src="https://www.shopitcommerce.com/wp-content/uploads/2019/03/production-line-boxes.gif" width=200 height=30>'
+
+		if 'LIZARD' in disco:
+			disco = '<font color="#959">'+disco+'</font>'
+		elif 'MOOSE' in disco:
+			disco = '<font color="#57A">'+disco+'</font>'
+		elif 'smb' in disco:
+			disco = '<font color="#994">'+disco+'</font>'
+		else:
+			disco = '<font color="#599">'+disco+'</font>'
 
 		# create title
 		title="**%s**" % os.path.basename(p)
-		title+="\n>disco: %s" % disco
+		title+='\n>disco: **%s**' % disco
 		# title+="\nmover: %s" % mover
+		title+="\ntamanho: **%s**" % size
+		title+= last_modified
 		title+="\nposicao: %s" % posicao
-		title+="\ntamanho: %s" % size
-		title+="\n%s" % last_modified
 		title+="\n%s" % extra
+		title+=""
 
 		# if a card exists
 
