@@ -6,18 +6,15 @@ sys.path.insert(0, os.path.dirname(__file__)+"/src/" )
 from wekanapi import WekanApi
 from pprint import pprint as pp
 from glob import glob
+import random
 import os
 
-processes = os.popen("ps -AHfc | grep update | grep -v grep").readlines()
-print processes
-if len( processes ) > 3:
+processes = os.popen("ps -AHfc | grep update | grep -v grep | grep -v tail").readlines()
+print len(processes), processes
+if len( processes ) > 2:
 	exit(0)
 
-api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open("userpasswd.txt").readlines())), )
-
-class _cards(dict):
-	pass
-
+api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
 jobs=[]
 d = {}
 cards = {}
@@ -44,9 +41,11 @@ ltoFreeSpace = ""
 ltoBackup = ''.join(os.popen("ssh root@nexenta.local 'pgrep -fa rsync.*LTO' | tail -1").readlines()).strip().split()
 if len(ltoBackup) > 3:
 	ltoBackup = ltoBackup[3].strip().rstrip('/')
-	ltoFreeSpace = ''.join(os.popen("ssh root@nexenta.local 'df -h | grep LTO'").readlines()).strip().split()[-3]
-	print ltoFreeSpace
 print ltoBackup
+ltoFreeSpace = ''.join(os.popen("ssh root@nexenta.local 'df -h | grep LTO'").readlines()).strip().split()[-3]
+print ltoFreeSpace
+ltoLS = [ x.strip() for x in os.popen("ssh root@nexenta.local 'ls /LTO/'").readlines() ]
+print ltoLS
 
 # loop over jobs and update weekan cards with size and other info
 folders  = glob("/atomo/jobs/*")
@@ -72,10 +71,22 @@ for p in folders:
 			else:
 				continue
 
+
+wh = (200,70)
+gifs={
+	'esperando' : [
+		# 'https://media.tenor.com/images/3887c2e4935e851062bfb30ab503a0b3/tenor.gif',
+		'https://data.whicdn.com/images/98966151/original.gif',
+		# 'https://media1.tenor.com/images/e63c6e5bad162196621b12890c0d574f/tenor.gif?itemid=5530289',
+	],
+}
+gif_counter={
+	'esperando' : 0,
+}
 for job in repetidos.keys():
-	print job
+	# print job
 	repetidos[job].sort()
-	p = [ x for x in repetidos[job] if 'atomo' in x ]
+	p = [ x for x in repetidos[job] if '/atomo' in x[0:7] ]
 	if p:
 		p = p[0]
 	else:
@@ -84,19 +95,28 @@ for job in repetidos.keys():
 	jobNumber = int(os.path.basename(p).split('.')[0])
 
 	# only consider directories
-	if jobNumber < 9000 and jobNumber > 0: # and jobNumber==581:
+	if jobNumber < 9000 and jobNumber > 0: # and jobNumber==587:
 
 		# calculate size of jobs just once a day!
 		print p
 		l='/tmp/%s.disk_usage.log' % p.strip('/').replace('/','_')
+		lm='/tmp/%s.last_modified.log' % p.strip('/').replace('/','_')
 		if not os.path.exists(l) or ( ( time.time() - int(os.stat(l)[-1]) ) /60 /60 ) > 24  or  os.stat( l )[6] == 0:
 			os.popen( 'du -shc %s 2>/dev/null | grep total > %s ' % ( p, l ) )
+
+		if not os.path.exists(lm) or ( ( time.time() - int(os.stat(lm)[-1]) ) /60 /60 ) > 24  or  os.stat( lm )[6] == 0:
+			os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 | date -d@$(awk '{print $1}') 2>/dev/null  >  %s" % ( p, lm ) )
 
 		size= ''.join(open( l ).readlines()).split()[0].strip()
 		disco=os.path.dirname(p)
 		mover=""
 		posicao=""
+		last_modified=""
 		extra=""
+
+		if os.path.exists( lm ):
+			d=''.join(open( lm ).readlines()).strip().split()
+			last_modified = "modificado em: %s %s %s" % ( d[1], d[2], d[-1] ) 
 
 		hasCard = os.path.basename(p) in j
 		if hasCard:
@@ -104,28 +124,40 @@ for job in repetidos.keys():
 				posicao = "**em producao**"
 			elif "LIZARD" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
-				extra='<img src="https://media1.tenor.com/images/b5c77a0f1690bcfdce0df8c6525ea95e/tenor.gif?itemid=7903387" width=200>'
 				if [ x for x in repetidos[job] if 'LIZARD' in x ]:
 					if len( repetidos[job] )>1:
 						posicao = "**movendo pro LizardFS**"
-						extra='<img src="https://media.giphy.com/media/sRFEa8lbeC7zbcIZZR/giphy.gif" width=200>'
 					else:
-						posicao = "**terminado de mover**"
-						extra=""
+						posicao = "**terminado**"
 
 			elif "LTO" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
-				# extra='<img src="https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/e8b59154-c192-4417-888b-f9731b36ae89/daxnkcx-3db57900-9d17-4f68-8323-4bfd7031fc3b.gif?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcL2U4YjU5MTU0LWMxOTItNDQxNy04ODhiLWY5NzMxYjM2YWU4OVwvZGF4bmtjeC0zZGI1NzkwMC05ZDE3LTRmNjgtODMyMy00YmZkNzAzMWZjM2IuZ2lmIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.W3zjrny0ezsx5e-uGiQcLQKfQbgHFp-MQqGdzqWM-4g" width=100>'
-				extra='<img src="https://media1.tenor.com/images/b5c77a0f1690bcfdce0df8c6525ea95e/tenor.gif?itemid=7903387" width=200>'
 
 			elif "BKP" in cards[ os.path.basename(p) ].cardslist.title:
-				posicao = "**terminado**"
+				posicao = "**esperando...**"
+				if job in ltoLS:
+					posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
 
 		# now update the card which is being backed up
 		# print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
 		if os.path.basename(p) in ltoBackup:
-			posicao="**Movendo para o LTO...**"
-			extra='<img src="https://media.giphy.com/media/sRFEa8lbeC7zbcIZZR/giphy.gif" width=200>'
+			posicao="**movendo para o LTO...**"
+
+		# set extra information
+		if 'esperando' in posicao:
+			# extra='<img src="%s" width=200 height=70>' % gifs['esperando'][random.randint(0, len(gifs['esperando'])-1)]
+			gif_counter['esperando'] += 1
+			if gif_counter['esperando'] >= len(gifs['esperando']):
+				gif_counter['esperando'] = 0
+
+			extra='<img src="%s" width=200 height=50>' % gifs['esperando'][gif_counter['esperando']]
+
+		elif 'movendo' in posicao:
+			extra='<img src="https://media.giphy.com/media/sRFEa8lbeC7zbcIZZR/giphy.gif" width=200 height=50>'
+
+		elif 'terminado' in posicao:
+			posicao += ' <img src="https://thumbs.gfycat.com/ShyCautiousAfricanpiedkingfisher-size_restricted.gif" width=12 height=12>'
+
 
 		# create title
 		title="**%s**" % os.path.basename(p)
@@ -133,12 +165,13 @@ for job in repetidos.keys():
 		# title+="\nmover: %s" % mover
 		title+="\nposicao: %s" % posicao
 		title+="\ntamanho: %s" % size
+		title+="\n%s" % last_modified
 		title+="\n%s" % extra
 
 		# if a card exists
 
 		if hasCard:
-			if title.strip() != cards[ os.path.basename(p) ].data['title'].strip():
+			if title.strip() != cards[ os.path.basename(p) ].data['title'].strip() or 1:
 				# print title.strip() != cards[ os.path.basename(p) ].data['title'].strip()
 				# print title, cards[ os.path.basename(p) ].data['title']
 				# print cards[ os.path.basename(p) ].cardslist.data
@@ -146,6 +179,10 @@ for job in repetidos.keys():
 
 				if not cards[ os.path.basename(p) ].modify( title=title ):
 					print "Error updating card for %s!!" % p
+
+				# if not cards[ os.path.basename(p) ].modify( description="TESTE" ):
+				# 	print "Error updating card for %s!!" % p
+
 			# else:
 			# 	print "No update needed!"
 
@@ -157,17 +194,17 @@ for job in repetidos.keys():
 
 
 		if ltoFreeSpace and os.path.basename(p) in ltoBackup:
-			title = "**Ainda tem %s de espaco livre**" % ltoFreeSpace
 			list = cards[ os.path.basename(p) ].cardslist
 			b = list.board
-			spaceCard = [ x for x in d[b.title][list.title].keys() if 'ainda tem' in x.lower() ]
+			title = "**%s - %s livre**" % ( list.title, ltoFreeSpace )
+			spaceCard = [ x for x in d[b.title][list.title].keys() if 'livre**' in x.lower() ]
 			print d[b.title][list.title].keys()
 			print spaceCard
 			if spaceCard:
 				if title != cards[spaceCard[0].replace('*','')].data['title']:
 					cards[spaceCard[0].replace('*','')].modify( title=title )
 			else:
-				list.add_card( "**Ainda tem %s de espaco livre**" % ltoFreeSpace )
+				list.add_card( title )
 
 
 
