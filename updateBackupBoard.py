@@ -45,7 +45,7 @@ if len(ltoBackup) > 3:
 print ltoBackup
 ltoFreeSpace = ''.join(os.popen("ssh root@nexenta.local 'df -h | grep LTO'").readlines()).strip().split()[-3]
 print ltoFreeSpace
-ltoLS = [ x.strip() for x in os.popen("ssh root@nexenta.local 'ls /LTO/'").readlines() ]
+ltoLS = [ x.strip() for x in os.popen("ssh root@nexenta.local 'ls -1 /LTO/'").readlines() ]
 print ltoLS
 
 # loop over jobs and update weekan cards with size and other info
@@ -147,7 +147,7 @@ for job in repetidos.keys():
 					meses=""
 				last_modified = '\nmodificado a:**<font color="%s"> %s%s</font>**' % ( color, meses, dias )
 
-		hasCard = os.path.basename(p) in j
+		hasCard = os.path.basename(p) in j and os.path.basename(p) in cards.keys()
 		if hasCard:
 			if cards[ os.path.basename(p) ].cardslist.title == "JOBS":
 				if months < 2:
@@ -167,16 +167,20 @@ for job in repetidos.keys():
 
 			elif "LTO" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
+				# now update the card which is being backed up
+				# print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
+				if os.path.basename(p) in ltoBackup:
+					posicao="**movendo para o LTO...**"
+					if len( repetidos[job] )>1:
+						posicao = "**movendo pro LizardFS**"
+					else:
+						posicao = "**terminado**"
+
 
 			elif "BKP" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
 				if job in ltoLS:
 					posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
-
-		# now update the card which is being backed up
-		# print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
-		if os.path.basename(p) in ltoBackup:
-			posicao="**movendo para o LTO...**"
 
 		# set extra information
 		if 'esperando' in posicao:
