@@ -107,7 +107,7 @@ for job in repetidos.keys():
 
 		if not os.path.exists(lm) or ( ( time.time() - int(os.stat(lm)[-1]) ) /60 /60 ) > 24  or  os.stat( lm )[6] == 0:
 			# os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 | date -d@$(awk '{print $1}') 2>/dev/null  >  %s" % ( p, lm ) )
-			os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s" % ( p, lm ) )
+			os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s " % ( p, lm ) )
 
 		size= ''.join(open( l ).readlines()).split()[0].strip()
 		disco=os.path.dirname(p)
@@ -168,19 +168,21 @@ for job in repetidos.keys():
 			elif "LTO" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
 				# now update the card which is being backed up
-				# print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
+				print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
 				if os.path.basename(p) in ltoBackup:
 					posicao="**movendo para o LTO...**"
-					if len( repetidos[job] )>1:
-						posicao = "**movendo pro LizardFS**"
-					else:
-						posicao = "**terminado**"
 
 
 			elif "BKP" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
-				if job in ltoLS:
-					posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
+				if os.path.basename(p) in ltoBackup:
+					posicao="**movendo para o LTO...**"
+				elif job in ltoLS:
+					if len( repetidos[job] )>1:
+						posicao = "**terminado - falta apagar %s**" % p
+					else:
+						posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
+
 
 		# set extra information
 		if 'esperando' in posicao:
