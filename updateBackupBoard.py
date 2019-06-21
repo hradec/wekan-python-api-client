@@ -178,8 +178,9 @@ for job in repetidos.keys():
 				if os.path.basename(p) in ltoBackup:
 					posicao="**movendo para o LTO...**"
 				elif job in ltoLS:
-					if len( repetidos[job] )>1:
-						posicao = "**terminado - falta apagar %s**" % p
+					rep = repetidos[job]+[ x for x in ltoLS if job in x ]
+					if len( rep )>1:
+						posicao = "**terminado - falta apagar %s**" % ', '.join(repetidos[job])
 					else:
 						posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
 
@@ -195,6 +196,9 @@ for job in repetidos.keys():
 
 		elif 'movendo' in posicao:
 			extra='<img src="https://media.giphy.com/media/sRFEa8lbeC7zbcIZZR/giphy.gif" width=200 height=50>'
+
+		elif 'apagar' in posicao:
+			posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
 
 		elif 'terminado' in posicao:
 			posicao += ' <img src="https://thumbs.gfycat.com/ShyCautiousAfricanpiedkingfisher-size_restricted.gif" width=12 height=12>'
