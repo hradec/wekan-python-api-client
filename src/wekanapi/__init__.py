@@ -32,7 +32,7 @@ class WekanApi:
                         "{}{}".format(self.api_url, url),
                         params=params,
                         headers=headers if authed else {},
-                        proxies=self.proxies
+                        # proxies=self.proxies
                     )
             # add
             else:
