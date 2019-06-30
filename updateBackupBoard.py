@@ -12,7 +12,7 @@ import os
 
 processes = os.popen("ps -AHfc | grep update | grep -v grep | grep -v tail").readlines()
 print len(processes), processes
-if len( processes ) > 2:
+if len( processes ) > 3:
 	exit(0)
 
 api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
