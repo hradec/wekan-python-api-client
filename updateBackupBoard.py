@@ -1,9 +1,8 @@
 #!/bin/python2
 
 import sys, os, time
-sys.path.insert(0, os.path.dirname(__file__)+"/src/" )
+import wbackup
 
-from wekanapi import WekanApi
 from pprint import pprint as pp
 from glob import glob
 import random, time
@@ -11,13 +10,9 @@ import os
 
 lto_ssh='ssh root@nexenta.local'
 
-processes = os.popen("ps -AHfc | grep update | grep -v grep | grep -v tail").readlines()
-print len(processes), processes
-if len( processes ) > 3:
-	print "exiting... too many processess!"
-	exit(0)
+wbackup.runOnlyOnce( __file__ )
 
-api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
+api = wbackup.api()
 jobs=[]
 d = {}
 cards = {}
