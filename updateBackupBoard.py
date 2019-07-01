@@ -13,6 +13,7 @@ import os
 processes = os.popen("ps -AHfc | grep update | grep -v grep | grep -v tail").readlines()
 print len(processes), processes
 if len( processes ) > 3:
+	print "exiting... too many processess!"
 	exit(0)
 
 api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
@@ -42,11 +43,11 @@ ltoFreeSpace = ""
 ltoBackup = ''.join(os.popen("ssh root@nexenta.local 'pgrep -fa rsync.*LTO' | tail -1").readlines()).strip().split()
 if len(ltoBackup) > 3:
 	ltoBackup = ltoBackup[3].strip().rstrip('/')
-print ltoBackup
+print "1 ===>",ltoBackup
 ltoFreeSpace = ''.join(os.popen("ssh root@nexenta.local 'df -h | grep LTO'").readlines()).strip().split()[-3]
-print ltoFreeSpace
+print "2 ===>",ltoFreeSpace
 ltoLS = [ '/LTO/%s' % x.strip() for x in os.popen("ssh root@nexenta.local 'ls -1 /LTO/'").readlines() ]
-print ltoLS
+print "3 ===>",ltoLS
 
 # loop over jobs and update weekan cards with size and other info
 folders  = glob("/atomo/jobs/*")
