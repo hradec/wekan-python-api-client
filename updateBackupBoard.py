@@ -9,6 +9,7 @@ from glob import glob
 import random, time
 import os
 
+lto_ssh='ssh root@nexenta.local'
 
 processes = os.popen("ps -AHfc | grep update | grep -v grep | grep -v tail").readlines()
 print len(processes), processes
@@ -38,15 +39,21 @@ j=''.join(jobs)
 toRemove=[]
 paths=[]
 
-# check if we're backup to LTO
+# gather information from the LTO machine
 ltoFreeSpace = ""
-ltoBackup = ''.join(os.popen("ssh root@nexenta.local 'pgrep -fa rsync.*LTO' | tail -1").readlines()).strip().split()
+ltoBackup = ''.join(os.popen(lto_ssh+" 'pgrep -fa rsync.*LTO' | tail -1 ").readlines()).strip().split()
 if len(ltoBackup) > 3:
 	ltoBackup = ltoBackup[3].strip().rstrip('/')
-print "1 ===>",ltoBackup
-ltoFreeSpace = ''.join(os.popen("ssh root@nexenta.local 'df -h | grep LTO'").readlines()).strip().split()[-3]
-print "2 ===>",ltoFreeSpace
-ltoLS = [ '/LTO/%s' % x.strip() for x in os.popen("ssh root@nexenta.local 'ls -1 /LTO/'").readlines() ]
+	print "1 ===>",ltoBackup
+else:
+	ltoBackup = ''
+ltoFreeSpace = ''.join(os.popen(lto_ssh+" 'df -h | grep LTO' ").readlines()).strip().split()
+if len(ltoFreeSpace) > 3:
+	ltoFreeSpace = ltoFreeSpace[-3]
+	print "2 ===>",ltoFreeSpace
+else:
+	ltoFreeSpace = ""
+ltoLS = [ '/LTO/%s' % x.strip() for x in os.popen(lto_ssh+" 'ls -1 /LTO/' ").readlines() ]
 print "3 ===>",ltoLS
 
 # loop over jobs and update weekan cards with size and other info
@@ -135,7 +142,7 @@ for job in repetidos_sorted:
 				# 				mv = mv/1000/1000
 				# 		tamanho = mv
 				if not tamanho:
-					os.popen( '''ssh root@192.168.0.16 "du -shc %s 2>/dev/null" | grep total > %s ''' % ( p, l ) )
+					os.popen( lto_ssh+''' "du -shc %s 2>/dev/null" | grep total > %s ''' % ( p, l ) )
 				else:
 					os.popen( '''echo "%.2fT" > %s ''' % ( tamanho, l ) )
 			else:
@@ -147,7 +154,7 @@ for job in repetidos_sorted:
 			if '/LTO' in p:
 				if 'modificado' not in card_title:
 					# calculate from the TAPE folder
-					os.popen( '''ssh root@192.168.0.16 "find %s -type f -printf '%%T@ %%p\n'" | sort -n | tail -1 2>/dev/null  >  %s ''' % ( p, lm ) )
+					os.popen( lto_ssh+''' "find %s -type f -printf '%%T@ %%p\n'" | sort -n | tail -1 2>/dev/null  >  %s ''' % ( p, lm ) )
 			else:
 				os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s " % ( p, lm ) )
 
@@ -347,16 +354,17 @@ for job in repetidos_sorted:
 
 		if ltoFreeSpace and os.path.basename(p) in ltoBackup:
 			list = cards[ os.path.basename(p) ].cardslist
-			b = list.board
-			title = "**%s - %s livre**" % ( list.title, ltoFreeSpace )
-			spaceCard = [ x for x in d[b.title][list.title].keys() if 'livre**' in x.lower() ]
-			print d[b.title][list.title].keys()
-			print spaceCard
-			if spaceCard:
-				if title != cards[spaceCard[0].replace('*','')].data['title']:
-					cards[spaceCard[0].replace('*','')].modify( title=title )
-			else:
-				list.add_card( title )
+			if 'BKP' in  list.title or 'EXT' in  list.title:
+				b = list.board
+				title = "**%s - %s livre**" % ( list.title, ltoFreeSpace )
+				spaceCard = [ x for x in d[b.title][list.title].keys() if 'livre**' in x.lower() ]
+				print d[b.title][list.title].keys()
+				print spaceCard
+				if spaceCard:
+					if title != cards[spaceCard[0].replace('*','')].data['title']:
+						cards[spaceCard[0].replace('*','')].modify( title=title )
+				else:
+					list.add_card( title )
 
 
 
