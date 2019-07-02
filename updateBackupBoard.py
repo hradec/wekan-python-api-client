@@ -81,28 +81,13 @@ for job in repetidos_sorted:
 			if '/LTO' in p:
 				tamanho = 0
 				# if we have tamanho in the title
-				# if 'tamanho' in card_title:
-				# 	# extract the value from it and save to the log file.
-				# 	m = [ x for x in card_title.split('\n') if 'tamanho' in x ]
-				# 	if m:
-				# 		if '**' in m[0]:
-				# 			m = m[0].split('**')[1]
-				# 		else:
-				# 			m = m[0].split(' ')[1]
-				#
-				# 		mv = float(''.join([x for x in m if x.isdigit() or x=='.']))
-				# 		if mv > 0:
-				# 			if 'G' in m.upper():
-				# 				mv = mv/1000
-				# 			elif 'T' in m.upper():
-				# 				mv = mv
-				# 			else:
-				# 				mv = mv/1000/1000
-				# 		tamanho = mv
+				# size = [x for x in title if 'tamanho: ' in x]
+				# if size:
+				# 	tamanho = wbackup.convertHtoV(size[0])
 				if not tamanho:
 					os.popen( wbackup.lto_ssh+''' "du -shc %s 2>/dev/null" | grep total > %s ''' % ( p, l ) )
 				else:
-					os.popen( '''echo "%.2fT" > %s ''' % ( tamanho, l ) )
+					os.popen( '''echo "%s\ttotal" > %s ''' % ( wbackup.convertVtoH(tamanho), l ) )
 			else:
 				os.popen( 'du -shc %s 2>/dev/null | grep total > %s ' % ( p, l ) )
 
@@ -221,9 +206,12 @@ for job in repetidos_sorted:
 					# if we have more than one path for the job that is in
 					# the LTO tape, we need to delete the other ones
 					if len( rep )>1:
-						# TODO: we need to write the code to double check if the LTO copy is 100% the other paths.
-						# TODO: if we known the LTO copy is OK, then move it to a deleted folder to be deleted after 48hours
-						posicao = "**terminado - falta apagar %s**" % ', '.join(repetidos[job])
+						checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
+						if len(checkRsyncLogLTO) < 4:
+							posicao = "**esperando... \n(falta verificar %s vezes)**" % (4-len(checkRsyncLogLTO))
+						else:
+							# we now only set as "falta apagar" after it has being verified
+							posicao = "**terminado\n(falta apagar %s)**" % ', '.join([ x for x in repetidos[job] if 'LTO' not in x])
 					else:
 						# theres no other path for the JOB in the LTO
 						posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
