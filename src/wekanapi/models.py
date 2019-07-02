@@ -100,6 +100,7 @@ class Card:
     def __init__(self, api, cardslist, card_data):
         self.api = api
         self.cardslist = cardslist
+        self.list = cardslist
         self.data = card_data
         self.id = card_data["_id"]
         self.title = card_data["title"]
@@ -141,8 +142,7 @@ class Card:
                 id = self.api.api_call(
                     "/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id),
                 params=args)
-
-            print "---->",id
+                print "---->",id
 
         except:
             return False
