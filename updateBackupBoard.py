@@ -8,74 +8,11 @@ from glob import glob
 import random, time
 import os
 
-lto_ssh='ssh root@nexenta.local'
-
 wbackup.runOnlyOnce( __file__ )
 
 api = wbackup.api()
-jobs=[]
-d = {}
-cards = {}
-# grab all cards form the weekan BACKUP board and store in cards dictionary
-for b  in api.get_user_boards('BACKUP'):
-	d[b.title] = {}
-	d[b.title][".class"] = b
-	for list in b.get_cardslists():
-		d[b.title][list.title] = {}
-		d[b.title][list.title][".class"] = list
-		for card in list.get_cards():
-			d[b.title][list.title][card.title]=card
-			jobs.append(card.title)
-			cards[ card.title.split('\n')[0].replace("*","") ] = card
 
-# create a big string with all titles so we can fast and easyly find
-# if a job already has a card!
-j=''.join(jobs)
-toRemove=[]
-paths=[]
-
-# gather information from the LTO machine
-ltoFreeSpace = ""
-ltoBackup = ''.join(os.popen(lto_ssh+" 'pgrep -fa rsync.*LTO' | tail -1 ").readlines()).strip().split()
-if len(ltoBackup) > 3:
-	ltoBackup = ltoBackup[3].strip().rstrip('/')
-	print "1 ===>",ltoBackup
-else:
-	ltoBackup = ''
-ltoFreeSpace = ''.join(os.popen(lto_ssh+" 'df -h | grep LTO' ").readlines()).strip().split()
-if len(ltoFreeSpace) > 3:
-	ltoFreeSpace = ltoFreeSpace[-3]
-	print "2 ===>",ltoFreeSpace
-else:
-	ltoFreeSpace = ""
-ltoLS = [ '/LTO/%s' % x.strip() for x in os.popen(lto_ssh+" 'ls -1 /LTO/' ").readlines() ]
-print "3 ===>",ltoLS
-
-# loop over jobs and update weekan cards with size and other info
-folders  = glob("/atomo/jobs/*")
-folders += glob("/.LIZARDFS/atomo/jobs/*")
-folders += glob("/.MOOSEFS/atomo/jobs/*")
-folders += glob("/smb/Backups-3ds/atomo/jobs/*")
-folders.sort()
-repetidos={}
-for p in folders+ltoLS:
-	p = os.path.abspath(p).replace('//','/').rstrip('/')
-	if os.path.islink(p):
-		p = os.readlink(p)
-	p = p.replace('//','/').rstrip('/')
-
-	if not os.path.exists(p) and not '/LTO' in p:
-		toRemove.append(p)
-	elif ( os.path.isdir(p) and not os.path.islink(p) ) or '/LTO' in p:
-		if os.path.basename(p) not in repetidos:
-			repetidos[ os.path.basename(p) ] = [p]
-		else:
-			if p not in repetidos[ os.path.basename(p) ]:
-				repetidos[ os.path.basename(p) ] += [p]
-			else:
-				continue
-
-
+# gifs!!
 wh = (200,70)
 gifs={
 	'esperando' : [
@@ -87,6 +24,32 @@ gifs={
 gif_counter={
 	'esperando' : 0,
 }
+
+# grab all cards form the weekan BACKUP board and store in hierarquical dict "d"
+# and a cards dictionary
+result = wbackup.getCards()
+d     = result['data']
+cards = result['cards']
+jobs  = result['jobs']
+
+# create a big string with all titles so we can fast and easyly find
+# if a job already has a card!
+j=''.join(jobs)
+
+# gather information from the LTO machine
+ltoBackup = wbackup.runningLTO()
+ltoFreeSpace = wbackup.freespaceLTO()
+ltoLS = wbackup.lsLTO()
+labelLTO = wbackup.labelLTO()
+print ltoLS,ltoFreeSpace,ltoBackup, wbackup.hasTapeLTO()
+
+# find all jobs is all paths, and return a dictionary with job names as keys
+# and all paths for the job as a list.
+repetidos = wbackup.findAllJobs(ltoLS)
+toRemove=wbackup.toRemove()
+paths=[]
+
+# sort the jobs just because...
 repetidos_sorted = repetidos.keys()
 repetidos_sorted.sort()
 lto_total = 0
@@ -104,8 +67,8 @@ for job in repetidos_sorted:
 	# only consider directories
 	if jobNumber < 9000 and jobNumber > 0:
 	  # if jobNumber==621:
+	  	# print p
 
-		print p
 		# get the title of the card, if its already exist
 		card_title = ""
 		hasCard = os.path.basename(p) in j and os.path.basename(p) in cards.keys()
@@ -137,7 +100,7 @@ for job in repetidos_sorted:
 				# 				mv = mv/1000/1000
 				# 		tamanho = mv
 				if not tamanho:
-					os.popen( lto_ssh+''' "du -shc %s 2>/dev/null" | grep total > %s ''' % ( p, l ) )
+					os.popen( wbackup.lto_ssh+''' "du -shc %s 2>/dev/null" | grep total > %s ''' % ( p, l ) )
 				else:
 					os.popen( '''echo "%.2fT" > %s ''' % ( tamanho, l ) )
 			else:
@@ -149,7 +112,7 @@ for job in repetidos_sorted:
 			if '/LTO' in p:
 				if 'modificado' not in card_title:
 					# calculate from the TAPE folder
-					os.popen( lto_ssh+''' "find %s -type f -printf '%%T@ %%p\n'" | sort -n | tail -1 2>/dev/null  >  %s ''' % ( p, lm ) )
+					os.popen( wbackup.lto_ssh+''' "find %s -type f -printf '%%T@ %%p\n'" | sort -n | tail -1 2>/dev/null  >  %s ''' % ( p, lm ) )
 			else:
 				os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s " % ( p, lm ) )
 
@@ -195,7 +158,7 @@ for job in repetidos_sorted:
 		elif 'modificado' in card_title:
 			# keep last modification from card title
 			m = [ x for x in card_title.split('\n') if 'modificado' in x ]
-			print cards[ os.path.basename(p) ].data['title'].strip()
+			# print cards[ os.path.basename(p) ].data['title'].strip()
 			if m:
 				last_modified = '\n%s' % m[0]
 
@@ -221,7 +184,7 @@ for job in repetidos_sorted:
 			elif "LTO" in cards[ os.path.basename(p) ].cardslist.title:
 				posicao = "**esperando...**"
 				# now update the card which is being backed up
-				print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
+				# print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
 				if os.path.basename(p) in ltoBackup:
 					posicao="**movendo para o LTO...**"
 
@@ -242,9 +205,10 @@ for job in repetidos_sorted:
 
 
 			elif "BKP" in cards[ os.path.basename(p) ].cardslist.title:
-				if 'esperando...' not in card_title:
+				if 'esperando...' in card_title:
 					# TODO: write the code to start rsync when cards have "esperando..." in it, and are in a BKP* list
-					print "\n\nNeed to write the code to start rsync when a %s is 'esperando...' in the LTO list\n\n" % job
+					if labelLTO in cards[ os.path.basename(p) ].cardslist.title:
+						print "Need to write the code to start rsync when a %s (%s) is 'esperando...' in the LTO list" % (job, p)
 
 				posicao = "**esperando...**"
 				# if the path is being copied over right now... (ltoBackup tells us that!)
@@ -353,8 +317,8 @@ for job in repetidos_sorted:
 				b = list.board
 				title = "**%s - %s livre**" % ( list.title, ltoFreeSpace )
 				spaceCard = [ x for x in d[b.title][list.title].keys() if 'livre**' in x.lower() ]
-				print d[b.title][list.title].keys()
-				print spaceCard
+				# print d[b.title][list.title].keys()
+				# print spaceCard
 				if spaceCard:
 					if title != cards[spaceCard[0].replace('*','')].data['title']:
 						cards[spaceCard[0].replace('*','')].modify( title=title )
@@ -379,17 +343,21 @@ for job in repetidos_sorted:
 # 		list.add_card( title )
 
 
+# list links that dont't exist anymore
 print "\nThe following jobs don't exist:"
 for n in toRemove:
-	print '\t%s' % n
+	print '\t{:<40} -> {:<12}'.format( n, os.readlink(n) )
 
+# jobs that exist in multiple storages!!
 print "\nThe following jobs exist on more than one path:"
 keys = repetidos.keys()
 keys.sort()
 for n in keys:
 	if len(repetidos[n])>1:
-		print n
-		print repetidos[n]
+		print '\t',n
+		for r in repetidos[n]:
+			print '\t\t',r
+		print
 
 
 
