@@ -23,10 +23,39 @@ def api():
 # a cascade of 2 to 3 processes
 def runOnlyOnce( file , maxProcesses=3 ):
     processes = os.popen("ps -AHfc | grep %s | grep -v grep | grep -v tail" % os.path.basename(file)).readlines()
-    print len(processes), processes
+    # print len(processes), processes
     if len( processes ) > maxProcesses:
-    	print "exiting... too many processess!"
+    	print "Exiting... This script is already running..."
     	exit(0)
+
+def convertHtoV( s ):
+    s = s.replace('**','').split(':')[-1].strip()
+    if not s:
+        return 0.0
+    mv = float(''.join([x for x in s if x.isdigit() or x=='.']))
+    if 'M' in s.upper():
+        mv = mv*1024
+    elif 'G' in s.upper():
+        mv = mv*1024*1024
+    elif 'T' in s.upper():
+        mv = mv*1024*1024*1024
+    return mv
+
+def convertVtoH( mv ):
+    mv = float(mv)
+    suffix = ''
+    if mv > 1024*1024*1024:
+        suffix = 'T'
+        mv = mv / 1024.0 / 1024.0 / 1024.0
+    elif mv > 1024*1024:
+        suffix = 'G'
+        mv = mv / 1024.0 / 1024.0
+    elif mv > 1024:
+        suffix = 'M'
+        mv = mv / 1024.0
+
+    return "%.1f%s" % (mv, suffix)
+
 
 # run the command in the LTO machine!
 def sshLTO( cmd ):
@@ -69,6 +98,10 @@ def lsLTO( lto_mount_path = '/LTO' ):
 def labelLTO( lto_mount_path = '/LTO' ):
     return sshLTO('attr -g ltfs.volumeName %s | grep -v Attribute' % lto_mount_path).split('\n')[-1]
 
+# check rsync return code
+def checkRsyncLogLTO( path ):
+    check_cmd = 'grep "return code. 0" /tmp/backup_%s.log 2>/dev/null' % os.path.basename(path)
+    return [ x for x in sshLTO(check_cmd).split('\n') if x.strip() ]
 
 
 # grab all cards form the weekan BACKUP board and store in hierarquical dict "d"
@@ -79,15 +112,15 @@ def getCards( board = 'BACKUP'):
     d = {}
     cards = {}
     for b  in api().get_user_boards(board):
-		d[b.title] = {}
-		d[b.title][".class"] = b
-		for list in b.get_cardslists():
-			d[b.title][list.title] = {}
-			d[b.title][list.title][".class"] = list
-			for card in list.get_cards():
-				d[b.title][list.title][card.title]=card
-				jobs.append(card.title)
-				cards[ card.title.split('\n')[0].replace("*","") ] = card
+        d[b.title] = {}
+        d[b.title][".class"] = b
+        for list in b.get_cardslists():
+            d[b.title][list.title] = {}
+            d[b.title][list.title][".class"] = list
+            for card in list.get_cards():
+                d[b.title][list.title][card.title]=card
+                jobs.append(card.title)
+                cards[ card.title.split('\n')[0].replace("*","") ] = card
     return { 'data' : d, 'cards' : cards, 'jobs' : jobs }
 
 
