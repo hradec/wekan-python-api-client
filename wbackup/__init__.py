@@ -58,8 +58,8 @@ def convertVtoH( mv ):
 
 
 # run the command in the LTO machine!
-def sshLTO( cmd ):
-    return ''.join( os.popen( lto_ssh+''' '%s' 2>/dev/null''' % cmd ).readlines() ).strip()
+def sshLTO( cmd , error='2>/dev/null'):
+    return ''.join( os.popen( lto_ssh+''' '%s' %s''' % (cmd,error) ).readlines() ).strip()
 
 
 # return the path of the job being backed up right now!
@@ -103,6 +103,75 @@ def checkRsyncLogLTO( path ):
     check_cmd = 'grep "return code. 0" /tmp/backup_%s.log 2>/dev/null' % os.path.basename(path)
     return [ x for x in sshLTO(check_cmd).split('\n') if x.strip() ]
 
+# check rsync log and try to detect error in backup.
+def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO' ):
+    label = labelLTO(lto_mount_path)
+    lines = []
+    msg = ''
+    if not log:
+        check_cmd = 'tail -n 20  /tmp/backup_%s.log 2>/dev/null' % os.path.basename(path)
+        log = sshLTO(check_cmd)
+    log = [ x.strip() for x in log.split('\n') if x.strip() ]
+
+    if len(checkRsyncLogLTO( path ))<=1:
+        return msg
+
+    if log:
+        error = 0
+        if 'NO SPACE LEFT ON TAPE %s' % label in log[-1]:
+            error = 100
+        elif 'return code: 0' not in log[-1]:
+            error = 1
+        elif 'total size is' not in log[-2]:
+            error = 2
+        elif 'sent' not in log[-3]:
+            error = 3
+        elif 'sending incremental file list' not in log[-4]:
+            error = 4
+            count = -4
+            while True:
+                if abs(count)>len(log):
+                    break
+                l = log[count]
+                if 'sending incremental file list' in l:
+                    break
+                lines += [l]
+                count -= 1
+
+        if error >= 100:
+            msg = '**JOB NAO CABE NA FITA\nREMOVA O CARTAO DA LISTA %s**' % label
+        elif error > 0:
+            msg = '**ERRO NO LOG DE BACKUP(%s)...**\n/tmp/backup_%s.log\nO sistema vai tentar novamente...\n' % (error,os.path.basename(path)) #+'\n'.join(log)
+            msg += '\n'.join(lines)
+    return msg
+
+# remove a log file
+def removeRsyncLogLTO( path ):
+    cmd = 'rm -rf  /tmp/backup_%s.log 2>/dev/null' % os.path.basename(path)
+    return sshLTO(cmd)
+
+# check if a job fits in the tape or not
+# pass the tamanho: string from the title and the func will do the rest
+# if it doesn't fit, add a message to the backup log so we can
+# update the wekan card with this info!
+def checkIfFitsLTO( path, size_string, lto_mount_path = '/LTO' ):
+    ltoFreeSpace = convertHtoV(freespaceLTO(lto_mount_path))
+    size = convertHtoV(size_string)
+    bpath = os.path.basename(path)
+    if ltoFreeSpace-(size+1024*10) < 0:
+        print "%s won't fit in the lto tape currently loaded..." % bpath
+        sshLTO( 'echo "NO SPACE LEFT ON TAPE %s: %s - %s = %s" | tee -a /tmp/backup_%s.log' % (
+            labelLTO(lto_mount_path),
+            ltoFreeSpace,
+            (size+1024*10),
+            ltoFreeSpace-(size+1024*10),
+            bpath
+        ) )
+        return False
+    return True
+
+
+
 
 # grab all cards form the weekan BACKUP board and store in hierarquical dict "d"
 # and a cards dictionary. Also return jobs!
@@ -143,7 +212,9 @@ def findAllJobs( ltoLS=[] ):
     		p = os.readlink(p)
     	p = p.replace('//','/').rstrip('/')
 
-    	if not os.path.exists(p) and not '/LTO' in p:
+        if os.path.basename(p) == 'LTO':
+            continue
+    	elif not os.path.exists(p) and not '/LTO' in p:
             continue
     	elif ( os.path.isdir(p) and not os.path.islink(p) ) or '/LTO' in p:
     		if os.path.basename(p) not in repetidos:
