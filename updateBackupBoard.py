@@ -50,6 +50,7 @@ toRemove=wbackup.toRemove()
 paths=[]
 
 # sort the jobs just because...
+pode_apagar = []
 repetidos_sorted = repetidos.keys()
 repetidos_sorted.sort()
 lto_total = 0
@@ -172,6 +173,8 @@ for job in repetidos_sorted:
 				# print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
 				if os.path.basename(p) in ltoBackup:
 					posicao="**movendo para o LTO...**"
+				else:
+					wbackup.removeRsyncLogLTO( p )
 
 				m = [ x for x in card_title.split('\n') if 'tamanho' in x ]
 				if m:
@@ -190,14 +193,19 @@ for job in repetidos_sorted:
 
 
 			elif "BKP" in cards[ os.path.basename(p) ].cardslist.title:
+				posicao = "**esperando...**"
 				if 'esperando...' in card_title:
 					# TODO: write the code to start rsync when cards have "esperando..." in it, and are in a BKP* list
 					if labelLTO in cards[ os.path.basename(p) ].cardslist.title:
 						print "Need to write the code to start rsync when a %s (%s) is 'esperando...' in the LTO list" % (job, p)
+						tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
+						print tailLog
+						if 'JOB NAO CABE NA FITA' in tailLog:
+							posicao += '\n<font color="red"> %s </font>' % tailLog
 
-				posicao = "**esperando...**"
 				# if the path is being copied over right now... (ltoBackup tells us that!)
 				if os.path.basename(p) in ltoBackup:
+					print ltoBackup
 					posicao="**movendo para o LTO...**"
 
 				# if the job name is in the current loaded LTO...
@@ -208,10 +216,15 @@ for job in repetidos_sorted:
 					if len( rep )>1:
 						checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
 						if len(checkRsyncLogLTO) < 4:
-							posicao = "**esperando... \n(falta verificar %s vezes)**" % (4-len(checkRsyncLogLTO))
+							tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
+							if tailLog:
+								posicao = '**esperando...** \n<font color="red"> %s </font>\n' % tailLog
+							else:
+								posicao = "**esperando... \n(falta verificar %s vezes)**" % (4-len(checkRsyncLogLTO))
 						else:
 							# we now only set as "falta apagar" after it has being verified
-							posicao = "**terminado\n(falta apagar %s)**" % ', '.join([ x for x in repetidos[job] if 'LTO' not in x])
+							posicao = "**terminado\npode apagar %s**" % ', '.join([ x for x in repetidos[job] if 'LTO' not in x])
+							pode_apagar += [ x for x in repetidos[job] if 'LTO' not in x]
 					else:
 						# theres no other path for the JOB in the LTO
 						posicao = "**terminado - %s**" % cards[ os.path.basename(p) ].cardslist.title
@@ -332,21 +345,28 @@ for job in repetidos_sorted:
 
 
 # list links that dont't exist anymore
-print "\nThe following jobs don't exist:"
-for n in toRemove:
-	print '\t{:<40} -> {:<12}'.format( n, os.readlink(n) )
+if toRemove:
+	print "\nThe following jobs don't exist:"
+	for n in toRemove:
+		print '\tsudo rm -f {:<40} #=> {:<12}'.format( n, os.readlink(n) )
 
 # jobs that exist in multiple storages!!
-print "\nThe following jobs exist on more than one path:"
-keys = repetidos.keys()
-keys.sort()
-for n in keys:
-	if len(repetidos[n])>1:
-		print '\t',n
-		for r in repetidos[n]:
-			print '\t\t',r
-		print
+if repetidos.keys():
+	print "\nThe following jobs exist on more than one path:"
+	keys = repetidos.keys()
+	keys.sort()
+	for n in keys:
+		if len(repetidos[n])>1:
+			print '\t',n
+			for r in repetidos[n]:
+				print '\t\t',r
+			print
 
+# jobs backed up and verified that can be deleted
+if pode_apagar:
+	print "\nThe following jobs are on the LTO tape and can be deleted:"
+	for j in pode_apagar:
+		print '\tsudo rm -rf %s' % j
 
 
 print
