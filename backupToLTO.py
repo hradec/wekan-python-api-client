@@ -14,7 +14,7 @@ api = wbackup.api()
 cmd = ';'.join([
     'date | tee -a /tmp/backup_%s.log',
     'echo rsync -avpP %s/ /LTO/%s/ | tee -a /tmp/backup_%s.log',
-    'rsync -avpP %s/ /LTO/%s/ | tee -a /tmp/backup_%s.log',
+    'rsync -avpP %s/ /LTO/%s/ | egrep -v "/$" | tee -a /tmp/backup_%s.log',
     'echo "return code: $?" | tee -a /tmp/backup_%s.log',
 ])
 check_log = 'ls /tmp/backup_%s.log'
@@ -34,13 +34,14 @@ ltoFreeSpace = wbackup.convertHtoV(wbackup.freespaceLTO())
 
 
 ltoSpaceAfter = ltoFreeSpace
-for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x and ('esperando' in x or 'falta apagar' in x)]:
-    card = d['BACKUP'][labelLTO][c]
-    title = card.title.split('\n')
-    size = [x for x in title if 'tamanho: ' in x]
-    if size:
-        size = wbackup.convertHtoV(size[0])
-        ltoSpaceAfter -= size
+if labelLTO:
+    for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x and ('esperando' in x or 'falta apagar' in x)]:
+        card = d['BACKUP'][labelLTO][c]
+        title = card.title.split('\n')
+        size = [x for x in title if 'tamanho: ' in x]
+        if size:
+            size = wbackup.convertHtoV(size[0])
+            ltoSpaceAfter -= size
 
 
 # if we have a tape in the LTO and if there's nothing
@@ -66,9 +67,7 @@ if hasTapeLTO and not runningLTO:
             # check if it fits in the current loaded tape...
             size = [x for x in title if 'tamanho: ' in x]
             if size:
-                size = wbackup.convertHtoV(size[0])
-                if ltoFreeSpace-(size+1024*10) < 0:
-                    print "%s won't fit in the lto tape currently loaded..." % bpath
+                if not wbackup.checkIfFitsLTO(path, size[0]):
                     continue
 
             # if path is not /LTO...
@@ -82,9 +81,10 @@ if hasTapeLTO and not runningLTO:
                     doBackup = True
                 # if there's less than 4 susccessfull runs...
                 elif len(result) < 4:
-                    print  bpath, len(result),  result
-                    if not result[-1].strip() or int(result[-1].split(':')[-1]) != 0:
-                        doBackup = True
+                    doBackup = True
+                elif wbackup.checkRsyncLog4ErrorsLTO( path ):
+                    wbackup.removeRsyncLogLTO( path )
+                    doBackup = True
 
                 if doBackup:
                     backup = cmd % (
@@ -93,9 +93,11 @@ if hasTapeLTO and not runningLTO:
                         path, bpath, bpath,
                         bpath,
                     )
-                    print 'backing up %s...' % bpath
+                    print 'backing up %s...' % bpath,
                     sys.stdout.flush()
                     log = wbackup.sshLTO( backup )
+                    print wbackup.checkRsyncLog4ErrorsLTO( path, log ),
+                    print 'verificado %d vezes.' % len( wbackup.checkRsyncLogLTO( path ) )
 
 
 else:
@@ -107,17 +109,19 @@ else:
         print "Because we don't have a tape in the LTO drive..."
 
 
-sum = 0
-for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x ]:
-    card = d['BACKUP'][labelLTO][c]
-    title = card.title.split('\n')
-    size = [x for x in title if 'tamanho: ' in x]
-    if size:
-        size = wbackup.convertHtoV(size[0])
-        sum += size
-print "Total the todos os cards na coluna %s: %s" % (labelLTO, wbackup.convertVtoH(sum))
+if hasTapeLTO:
+    sum = 0
+    for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x ]:
+        card = d['BACKUP'][labelLTO][c]
+        title = card.title.split('\n')
+        size = [x for x in title if 'tamanho: ' in x]
+        if size:
+            size = wbackup.convertHtoV(size[0])
+            sum += size
+    print "Total the todos os cards na coluna %s: %s" % (labelLTO, wbackup.convertVtoH(sum))
 
-
+    # update wekan!!
+    os.system("%s/updateBackupBoard.py" % os.path.dirname(__file__))
 
 
 
