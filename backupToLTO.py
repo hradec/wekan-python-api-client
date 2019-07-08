@@ -13,8 +13,8 @@ api = wbackup.api()
 
 cmd = ';'.join([
     'date | tee -a /tmp/backup_%s.log',
-    'echo rsync -avpP %s/ /LTO/%s/ | tee -a /tmp/backup_%s.log',
-    'rsync -avpP %s/ /LTO/%s/ | egrep -v "/$" | tee -a /tmp/backup_%s.log',
+    "echo rsync -avpP --exclude '*:*' %s/ /LTO/%s/ | tee -a /tmp/backup_%s.log",
+    'rsync -avpP --exclude \'*:*\' %s/ /LTO/%s/ | egrep -v "/$" | tee -a /tmp/backup_%s.log',
     'echo "return code: $?" | tee -a /tmp/backup_%s.log',
 ])
 check_log = 'ls /tmp/backup_%s.log'
@@ -45,9 +45,11 @@ if labelLTO:
 
 
 # if we have a tape in the LTO and if there's nothing
-# being copied to it...
+# being copied to it... (if it can't connect to the lto server,
+# runningLTO will have ERROR in it, so it won't run as well.)
 if hasTapeLTO and not runningLTO:
     # go over all cards that are waiting to be backed up,
+    # in the list with the same name as the loaded TAPE
     for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x and ('esperando' in x or 'falta apagar' in x)]:
         card = d['BACKUP'][labelLTO][c]
         title = card.title.split('\n')
