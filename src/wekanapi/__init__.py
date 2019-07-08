@@ -14,7 +14,7 @@ class WekanApi:
             # modify
             if params:
                 if data:
-                    print 1
+                    # print 1
                     api_response = self.session.put(
                         "{}{}".format(self.api_url, url),
                         data=data,
@@ -27,7 +27,7 @@ class WekanApi:
                       'Accept': 'application/json',
                       'Authorization': "Bearer {}".format(self.token),
                     }
-                    print 2, headers, "{}{}".format(self.api_url, url)
+                    # print 2, headers, "{}{}".format(self.api_url, url)
                     api_response = self.session.put(
                         "{}{}".format(self.api_url, url),
                         params=params,
@@ -36,7 +36,7 @@ class WekanApi:
                     )
             # add
             else:
-                print 3
+                # print 3
                 api_response = self.session.post(
                     "{}{}".format(self.api_url, url),
                     data=data,
