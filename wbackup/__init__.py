@@ -7,7 +7,7 @@ from wekanapi import WekanApi
 from glob import glob
 from decimal import Decimal
 
-lto_ssh='timeout 600 ssh root@nexenta.local'
+lto_ssh='ssh root@nexenta.local'
 
 # generic function to connect to wekan
 global _api
@@ -25,8 +25,11 @@ def api():
 def runOnlyOnce( file , maxProcesses=3 ):
     processes = os.popen("ps -AHfc | grep %s | grep -v grep | grep -v tail" % os.path.basename(file)).readlines()
     # print len(processes), processes
+    print ""
+    print time.ctime()
+    print "="*80
     if len( processes ) > maxProcesses:
-    	print "Exiting... This script is already running..."
+    	print "Exiting... %s is already running..." % file
     	exit(0)
 
 def convertHtoV( s ):
@@ -63,14 +66,20 @@ def convertVtoH( mv ):
 
 
 # run the command in the LTO machine!
-def sshLTO( cmd , error='2>/dev/null'):
-    return ''.join( os.popen( lto_ssh+''' '%s' %s''' % (cmd,error) ).readlines() ).strip()
+def sshLTO( cmd , error='2>/dev/null', timeout=600):
+    _cmd = ""
+    if timeout:
+        _cmd = "timeout %d " % timeout
+    _cmd += lto_ssh+''' '%s' %s''' % (cmd,error)
+    # print _cmd
+    return ''.join( os.popen( _cmd ).readlines() ).replace('\r','').strip()
 
 
 # return the path of the job being backed up right now!
 # returns '' if nothing is being backed up!
 def runningLTO( lto_mount_path = '/LTO' ):
-    ltoBackup = sshLTO( "pgrep -fa rsync.*%s" % lto_mount_path.strip('/'), '2>&1 ; [ $? -gt 0 ] && echo ERROR' ).split('\n')
+    # ltoBackup = sshLTO( "pgrep -fa rsync.*%s" % lto_mount_path.strip('/'), '2>/dev/null ; ERROR=$? ; [ $ERROR -gt 0 ] && echo ERROR $ERROR' ).split('\n')
+    ltoBackup = sshLTO( "pgrep -fa rsync.*%s" % lto_mount_path.strip('/') ).split('\n')
     if 'ERROR' in ''.join(ltoBackup):
         ltoBackup = ''.join(ltoBackup)
     elif len(ltoBackup) > 1:
