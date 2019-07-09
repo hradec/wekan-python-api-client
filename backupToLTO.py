@@ -47,6 +47,7 @@ if labelLTO:
 # if we have a tape in the LTO and if there's nothing
 # being copied to it... (if it can't connect to the lto server,
 # runningLTO will have ERROR in it, so it won't run as well.)
+print '========>',runningLTO
 if hasTapeLTO and not runningLTO:
     # go over all cards that are waiting to be backed up,
     # in the list with the same name as the loaded TAPE
@@ -97,7 +98,7 @@ if hasTapeLTO and not runningLTO:
                     )
                     print 'backing up %s...' % bpath,
                     sys.stdout.flush()
-                    log = wbackup.sshLTO( backup )
+                    log = wbackup.sshLTO( backup, timeout=0 )
                     print wbackup.checkRsyncLog4ErrorsLTO( path, log ),
                     print 'verificado %d vezes.' % len( wbackup.checkRsyncLogLTO( path ) )
 
