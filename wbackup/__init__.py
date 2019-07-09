@@ -32,6 +32,8 @@ def runOnlyOnce( file , maxProcesses=3 ):
     	print "Exiting... %s is already running..." % file
     	exit(0)
 
+# convert data size in Humam readable values to actual number of bytes.
+# also converts % to values betwen 0.0 and 1.0(100%)
 def convertHtoV( s ):
     s = s.replace('**','').split(':')[-1].strip()
     if not s:
@@ -47,6 +49,7 @@ def convertHtoV( s ):
         mv = mv/100.0
     return mv
 
+# convert number of bytes to Humam readable values.
 def convertVtoH( mv ):
     mv = float(mv)
     suffix = ''
@@ -64,15 +67,22 @@ def convertVtoH( mv ):
     ret = ret.replace('.0','')
     return ret
 
-
-# run the command in the LTO machine!
-def sshLTO( cmd , error='2>/dev/null', timeout=600):
+# run a command in another machine using ssh
+# by default, it runs the command in a timeout of 600 (10 minutes)
+# and ignores stderr.
+def ssh( cmd , error='2>/dev/null', timeout=600):
     _cmd = ""
     if timeout:
         _cmd = "timeout %d " % timeout
     _cmd += lto_ssh+''' '%s' %s''' % (cmd,error)
     # print _cmd
-    return ''.join( os.popen( _cmd ).readlines() ).replace('\r','').strip()
+    p = os.popen( _cmd )
+    return ''.join( p.readlines() ).replace('\r','').strip()
+
+
+# run the command in the LTO machine!
+def sshLTO( cmd , error='2>/dev/null', timeout=600):
+    return ssh( cmd, error, timeout )
 
 
 # return the path of the job being backed up right now!
