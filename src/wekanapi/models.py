@@ -15,11 +15,24 @@ class Board:
         swimlanes_data = self.api.api_call("/api/boards/{}/swimlanes".format(self.id))
         return [Swinlane(self.api, self, swimlane_data) for swimlane_data in swimlanes_data if filter in swimlane_data["title"]]
 
+    def get_custom_fields(self):
+        custom_fields_data = self.api.api_call("/api/boards/{}/custom-fields".format(self.id))
+        return Customfields(self.api, self, custom_fields_data)
+
     def pprint(self, indent=0):
         pprint = "{}- {}".format("  "*indent, self.title)
         for cardslist in self.get_cardslists():
             pprint += "\n{}".format(cardslist.pprint(indent + 1))
         return pprint
+
+class Customfields(dict):
+    def __init__(self, api, board, custom_fields_data):
+        dict.__init__(self)
+        self.api = api
+        self.board = board
+        self.data = custom_fields_data
+        for each in self.data:
+            self[each['name']] = each
 
 
 class Swinlane:
@@ -83,11 +96,11 @@ class Cardslist:
         # return the newly created card
         return self.get_cards( id['_id'] )
 
-
 class Card:
     def __init__(self, api, cardslist, card_data):
         self.api = api
         self.cardslist = cardslist
+        self.list = cardslist
         self.data = card_data
         self.id = card_data["_id"]
         self.title = card_data["title"]
@@ -104,6 +117,36 @@ class Card:
             self.cardslist.board.id,
             self.id))
         return [Checklist(self.api, self, checklist_data) for checklist_data in checklists_data]
+
+
+    def setList(self, listName):
+        l = self.cardslist.board.get_cardslists( listName )
+        if l:
+            self.cardslist = l[0]
+            return self.modify()
+        return False
+
+    def modify(self, title="", data=None, **args):
+        if title:
+            self.data['title']=title
+        if data:
+            self.data=data
+
+        try:
+            if data or title:
+                id = self.api.api_call(
+                    "/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id),
+                data=self.data, params=True)
+            else:
+                print "====>",args
+                id = self.api.api_call(
+                    "/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id),
+                params=args)
+                print "---->",id
+
+        except:
+            return False
+        return True
 
     def pprint(self, indent=0):
         pprint = "{}- {}".format("  " * indent, self.title)
