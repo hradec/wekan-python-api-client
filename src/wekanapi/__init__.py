@@ -3,20 +3,46 @@ from .models import Board
 
 
 class WekanApi:
-    def api_call(self, url, data=None, authed=True):
-        if data is None:
+    def api_call(self, url, data=None, authed=True, params=None):
+        if data is None and params is None:
             api_response = self.session.get(
                 "{}{}".format(self.api_url, url),
                 headers={"Authorization": "Bearer {}".format(self.token)},
                 proxies=self.proxies
             )
         else:
-            api_response = self.session.post(
-                "{}{}".format(self.api_url, url),
-                data=data,
-                headers={"Authorization": "Bearer {}".format(self.token)} if authed else {},
-                proxies=self.proxies
-            )
+            # modify
+            if params:
+                if data:
+                    # print 1
+                    api_response = self.session.put(
+                        "{}{}".format(self.api_url, url),
+                        data=data,
+                        headers={"Authorization": "Bearer {}".format(self.token)},
+                        proxies=self.proxies
+                    )
+                else:
+                    headers = {
+                      'Content-Type': 'multipart/form-data',
+                      'Accept': 'application/json',
+                      'Authorization': "Bearer {}".format(self.token),
+                    }
+                    # print 2, headers, "{}{}".format(self.api_url, url)
+                    api_response = self.session.put(
+                        "{}{}".format(self.api_url, url),
+                        params=params,
+                        headers=headers if authed else {},
+                        # proxies=self.proxies
+                    )
+            # add
+            else:
+                # print 3
+                api_response = self.session.post(
+                    "{}{}".format(self.api_url, url),
+                    data=data,
+                    headers={"Authorization": "Bearer {}".format(self.token)} if authed else {},
+                    proxies=self.proxies
+                )
         return api_response.json()
 
     def __init__(self, api_url, credentials, proxies=None):
