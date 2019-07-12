@@ -6,8 +6,16 @@ sys.path.insert(0, os.path.dirname(__file__)+"/../src/" )
 from wekanapi import WekanApi
 from glob import glob
 from decimal import Decimal
+from jobCards import jobCards
 
 lto_ssh='ssh root@nexenta.local'
+
+# time to start move command
+move_delay = Decimal(60*60*4)
+
+# time to start backup to lto command
+backup_delay = 60*60*4
+
 
 # generic function to connect to wekan
 global _api
@@ -18,18 +26,33 @@ def api():
         _api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
     return _api
 
+# check if we have a moving happening already
+def moving( source ):
+    nprocs = pgrep( 'rsync.*%s' % os.path.dirname(source) )
+    # print source, nprocs
+    if len(nprocs) > 1:
+        return True
+    return False
+
+
+
+# return the number of proccess running
+def pgrep( file ):
+    return os.popen("pgrep -fa '%s' | grep -v pgrep | grep -v tail" % file).readlines()
 
 # prevent script from run multiple times
 # maxProcesses is default to 3, since crontab creates
 # a cascade of 2 to 3 processes
-def runOnlyOnce( file , maxProcesses=3 ):
+def runOnlyOnce( file , maxProcesses=3, echo=True ):
     processes = os.popen("ps -AHfc | grep %s | grep -v grep | grep -v tail" % os.path.basename(file)).readlines()
     # print len(processes), processes
-    print ""
-    print time.ctime()
-    print "="*80
+    if echo:
+        print ""
+        print time.ctime()
+        print "="*80
     if len( processes ) > maxProcesses:
-    	print "Exiting... %s is already running..." % file
+        if echo:
+    	       print "Exiting... %s is already running..." % file
     	exit(0)
 
 # convert data size in Humam readable values to actual number of bytes.
@@ -137,7 +160,7 @@ def countFilesRsyncLogLTO( path, lto_mount_path = '/LTO' ):
 
 # get the number of files to create a % of done during backup (only for the current job being backed up)
 # cache it every 24 hours
-def jobFileCound( p ):
+def jobFileCount( p ):
     lc='/tmp/%s.file_count.log' % p.strip('/').replace('/','_')
     # if os.path.basename(p) in ltoBackup:
     if not os.path.exists(lc) or ( ( time.time() - int(os.stat(lc)[-1]) ) /60 /60 ) > 24  or  os.stat( lc )[6] == 0:
@@ -150,9 +173,11 @@ def jobFileCound( p ):
 
 # return a percentage of the job files that have
 # being copied over to the tape
+# def copiedPercentageLTO( p ):
+#     return copiedPercentage( p, '/LTO/%s' % os.path.basename(p) )
 def copiedPercentageLTO( p ):
     # create the log with the number of files in the job
-    number_of_files = jobFileCound( p )
+    number_of_files = jobFileCount( p )
     # get the number of files in the backup, and calculate a
     # percentage with the wbackup.jobFileCound() above!
     perc = countFilesRsyncLogLTO( p ) / number_of_files
@@ -163,6 +188,30 @@ def copiedPercentageLTO( p ):
     percentage = float(math.floor(perc*100.0*100.0))/100.0
     # save a timed log so we can calculate time to finish
     l = '/tmp/%s.timed_percentage.log' % p.strip('/').replace('/','_')
+    f = open(l,'a')
+    f.write('%s %s\n' % (Decimal(time.time()), Decimal(perc*100.0)))
+    f.close()
+    return percentage
+
+# return a percentage of the job files that have
+# being copied over to the target
+def copiedPercentage( source, target, lto_mount_path = '/LTO' ):
+    # create the log with the number of files in the job
+    # get the number of files in the backup
+    source_number_of_files = jobFileCount( source )
+    if '/LTO' in target[0:5]:
+        target_number_of_files = countFilesRsyncLogLTO( p )
+    else:
+        target_number_of_files = jobFileCount( target )
+    # calculate a percentage with the wbackup.jobFileCound() above!
+    perc = target_number_of_files / source_number_of_files
+    # do a floor of the percentage * 100, so
+    # to keep at least 2 decimal chars.
+    # since floor() returns an int, convert to float
+    # and divide by 100 to get the 'floored' 2 decimals.
+    percentage = float(math.floor(perc*100.0*100.0))/100.0
+    # save a timed log so we can calculate time to finish
+    l = '/tmp/%s.timed_percentage.log' % source.strip('/').replace('/','_')
     f = open(l,'a')
     f.write('%s %s\n' % (Decimal(time.time()), Decimal(perc*100.0)))
     f.close()
@@ -213,12 +262,13 @@ def checkRsyncLogLTO( path ):
     return [ x for x in sshLTO(check_cmd).split('\n') if x.strip() ]
 
 # check rsync log and try to detect error in backup.
-def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO' ):
+def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO', log_path='/tmp/backup_%s.log' ):
     label = labelLTO(lto_mount_path)
     lines = []
     msg = ''
     if not log:
-        check_cmd = 'tail -n 20  /tmp/backup_%s.log 2>/dev/null' % os.path.basename(path)
+        log_path = log_path % os.path.basename(path)
+        check_cmd = 'tail -n 20  %s 2>/dev/null' % log_path
         log = sshLTO(check_cmd)
     log = [ x.strip() for x in log.split('\n') if x.strip() ]
 
@@ -228,7 +278,8 @@ def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO' ):
             error = 100
         elif 'return code: 0' not in log[-1]:
             error = 1
-        elif 'total size is' not in log[-2]:
+
+        if 'total size is' not in log[-2]:
             error = 2
         elif 'sent' not in log[-3]:
             error = 3
@@ -244,6 +295,7 @@ def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO' ):
                 lines += [l]
                 count -= 1
             lines.reverse()
+
 
         if error >= 100:
             msg = '**JOB NAO CABE NA FITA\nREMOVA O CARTAO DA LISTA %s**' % label
@@ -281,6 +333,13 @@ def checkIfFitsLTO( path, size_string, lto_mount_path = '/LTO' ):
         return False
     return True
 
+def checkIfFits( path, size_string ):
+    pathSpace = freeSpace(path)
+    size = convertHtoV(size_string)
+    bpath = os.path.basename(path)
+    if pathSpace['free']-(size+1024*10) < 0:
+        return False
+    return True
 
 
 
@@ -415,6 +474,12 @@ def updateListWithFreeSpace( list_name, zfree, getCards_result=None ):
 
 # gather information about storages and update the storage free space card
 # in the lists.
+storages = {
+    'LIZARD' : '/.LIZARDFS',
+    'MOOSE'  : '/.MOOSEFS',
+    'BEEGFS' : '/.BEEGFS',
+    'JOBS'   : '/atomo/jobs',
+}
 def getStoragesInfo( getCards_result=None ):
     global _getCards_result
     if not getCards_result:
@@ -423,12 +488,7 @@ def getStoragesInfo( getCards_result=None ):
     cards = getCards_result['cards']
     jobs  = getCards_result['jobs']
     # get free space
-    zpath = {
-        'LIZARD' : '/.LIZARDFS',
-        'MOOSE'  : '/.MOOSEFS',
-        'BEEGFS' : '/.BEEGFS',
-        'JOBS'   : '/atomo/jobs',
-    }
+    zpath = storages
     zfree = {
         'LIZARD' : freeSpace( zpath['LIZARD'] ),
         'MOOSE'  : freeSpace( zpath['MOOSE'] ),
