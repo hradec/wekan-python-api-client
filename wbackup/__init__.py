@@ -11,7 +11,7 @@ from jobCards import jobCards
 lto_ssh='ssh root@nexenta.local'
 
 # time to start move command
-move_delay = Decimal(60*60*4)
+move_delay = Decimal(60*60*1.45)
 
 # time to start backup to lto command
 backup_delay = 60*60*4
@@ -28,9 +28,9 @@ def api():
 
 # check if we have a moving happening already
 def moving( source ):
-    nprocs = pgrep( 'rsync.*%s' % os.path.dirname(source) )
+    nprocs = pgrep( 'rsync.*%s' % source )
     # print source, nprocs
-    if len(nprocs) > 1:
+    if len(nprocs) > 0:
         return True
     return False
 
@@ -38,7 +38,9 @@ def moving( source ):
 
 # return the number of proccess running
 def pgrep( file ):
-    return os.popen("pgrep -fa '%s' | grep -v pgrep | grep -v tail" % file).readlines()
+    cmd = "pgrep -fa '%s' | grep -v pgrep | grep -v tail" % file
+    # print cmd
+    return os.popen(cmd).readlines()
 
 # prevent script from run multiple times
 # maxProcesses is default to 3, since crontab creates
@@ -220,6 +222,9 @@ def copiedPercentage( source, target, lto_mount_path = '/LTO' ):
 # return a prediction of the amount of time remaining
 # based on the percentage log for the job
 def copyTimeToFinishLTO( p, returnAsString=False, deleteLog = False):
+    copyTimeToFinish( p, returnAsString, deleteLog)
+
+def copyTimeToFinish( p, returnAsString=False, deleteLog = False):
     l = '/tmp/%s.timed_percentage.log' % p.strip('/').replace('/','_')
     if deleteLog:
         os.remove( l )
@@ -227,32 +232,37 @@ def copyTimeToFinishLTO( p, returnAsString=False, deleteLog = False):
     ret = 0
     if returnAsString:
         ret = ''
-    lines = os.popen('head -10 %s ; tail -n 10 %s' % (l,l)).readlines()
-    if len(lines) < 2:
+    cmd = 'head -10 %s ; tail -n 10 %s' % (l,l)
+    lines = os.popen(cmd).readlines()
+    if len(lines) < 1:
         return (ret,ret)
     ztimes = {}
+    ztimes2 = []
     for line in lines:
         line = line.strip().split(' ')
         perc = float(line[1])
         ztimes[perc]  = float(line[0])
+        ztimes2 += [float(line[0])]
 
+    ztimes2.sort()
     zperc = ztimes.keys()
     zperc.sort()
-    tdiff = ztimes[ zperc[-1] ] - ztimes[ zperc[0] ]
+    tdiff = ztimes2[-1] - ztimes2[0]
     pdiff = zperc[-1] - zperc[0]
-
     if pdiff > 0.0:
         ret = ( (100.0-zperc[0]) / pdiff ) * tdiff
-        ret_simples = ( 100.0 / zperc[0] ) * tdiff - tdiff
-        falso=''
-        if ret_simples < ret:
-            falso = ' (+-)'
-            ret = ret_simples
-        if returnAsString:
-            return (
-                str(timedelta(seconds=ret)).split('.')[0].replace('day','dia')+falso,
-                str(timedelta(seconds=tdiff)).split('.')[0].replace('day','dia'),
-            )
+    else:
+        ret = 99999999999999
+    ret_simples = (tdiff/zperc[-1]) * 100.0 - tdiff
+    falso=''
+    if ret_simples < ret:
+        falso = ' (+-)'
+        ret = ret_simples
+    if returnAsString:
+        return (
+            str(timedelta(seconds=ret)).split('.')[0].replace('day','dia')+falso,
+            str(timedelta(seconds=tdiff)).split('.')[0].replace('day','dia'),
+        )
     return (ret, tdiff)
 
 
