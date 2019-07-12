@@ -321,7 +321,7 @@ class jobCards:
 
                     if [ x for x in self.all_jobs[job] if label in x or label.lower() in x ]:
                         if len( self.all_jobs[job] )>1:
-                            posicao = "**movendo pro LizardFS**"
+                            posicao = "**movendo...**"
                         else:
                             posicao = "**terminado**"
 
@@ -339,8 +339,19 @@ class jobCards:
                             extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
                         else:
                             if wbackup.moving( '/tmp/move_.*.log' ):
+                                print wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' )
                                 if wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' ):
-                                    extra += "**movendo...**"
+                                    storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
+                                    if storage:
+                                        target = '/'.join([ wbackup.storages[storage[0]], p ])
+                                        percentage = wbackup.copiedPercentage( p, target )
+                                        posicao  = "**movendo... %3.2f%%**" % (percentage)
+                                    ttf = wbackup.copyTimeToFinish( p, returnAsString = True )
+                                    print ttf
+                                    if ttf[0]:
+                                        posicao += "\ndecorrido: **%s**" % ttf[1]
+                                        posicao += "\nprevisao: **%s**" % ttf[0]
+                                        _decorrido = []
                                 else:
                                     extra += '**outra copia terminar...**\n'
                             else:
@@ -436,7 +447,7 @@ class jobCards:
                 extra+='<img src="%s" width=200 height=50>' % self.gifs['esperando'][self.gif_counter['esperando']]
 
             elif 'movendo' in posicao:
-                extra='<img src="https://media.giphy.com/media/sRFEa8lbeC7zbcIZZR/giphy.gif" width=200 height=50>'
+                extra+='<img src="https://media.giphy.com/media/sRFEa8lbeC7zbcIZZR/giphy.gif" width=200 height=50>'
 
             elif 'apagar' in posicao:
                 posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
@@ -450,7 +461,7 @@ class jobCards:
             elif 'backup' in posicao.lower():
                 posicao += '   '
                 posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
-                extra = '<img src="https://media0.giphy.com/media/W6AqdGRBUXxSw/giphy.gif" width=200 height=50>'
+                extra += '<img src="https://media0.giphy.com/media/W6AqdGRBUXxSw/giphy.gif" width=200 height=50>'
 
             elif 'nao cabe' in posicao.lower():
                 extra += '<img src="http://www.netanimations.net/animated-roped-off-construction-barracades.gif" width=200 height=50>'
