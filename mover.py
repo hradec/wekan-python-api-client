@@ -34,7 +34,6 @@ def rsync( source, target ):
     )
     # check if rsync is already running
     if not wbackup.moving( '/tmp/move_.*.log' ):
-        print _cmd
         print os.popen(_cmd).readlines()
 
 
