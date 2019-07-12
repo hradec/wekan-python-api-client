@@ -13,11 +13,15 @@ api = wbackup.api()
 
 cmd = ';'.join([
     'date | tee -a /tmp/backup_%s.log',
-    "echo rsync -avpP --exclude '*:*' %s/ /LTO/%s/ | tee -a /tmp/backup_%s.log",
-    'rsync -avpP --exclude \'*:*\' %s/ /LTO/%s/ | egrep -v "/$" | tee -a /tmp/backup_%s.log',
+    '''echo rsync -avpP --exclude "'*:*'" %s/ /LTO/%s/ | egrep -v "/$" | tee -a /tmp/backup_%s.log''',
+    '''rsync -avpP --exclude "'*:*'" %s/ /LTO/%s/ | egrep -v "/$" | tee -a /tmp/backup_%s.log''',
     'echo "return code: $?" | tee -a /tmp/backup_%s.log',
 ])
 check_log = 'ls /tmp/backup_%s.log'
+
+# new class which holds all cards for all jobs,
+# and can update single cards
+jobs = wbackup.jobCards()
 
 # grab all cards form the weekan BACKUP board and store in hierarquical dict "d"
 # and a cards dictionary
@@ -51,7 +55,7 @@ print '========>',runningLTO
 if hasTapeLTO and not runningLTO:
     # go over all cards that are waiting to be backed up,
     # in the list with the same name as the loaded TAPE
-    for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x and ('esperando' in x or 'falta apagar' in x)]:
+    for c in [ x for x in d['BACKUP'][labelLTO] if '.class' != x and ('esperando' in x or 'pode apagar' in x)]:
         card = d['BACKUP'][labelLTO][c]
         title = card.title.split('\n')
 
@@ -98,7 +102,7 @@ if hasTapeLTO and not runningLTO:
                     )
                     print 'backing up %s...' % bpath,
                     sys.stdout.flush()
-                    log = wbackup.sshLTO( backup, timeout=0 )
+                    log = wbackup.sshLTO( backup, timeout=0, error='2>&1' )
                     print wbackup.checkRsyncLog4ErrorsLTO( path, log ),
                     print 'verificado %d vezes.' % len( wbackup.checkRsyncLogLTO( path ) )
 
