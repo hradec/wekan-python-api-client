@@ -71,11 +71,6 @@ if hasTapeLTO and not runningLTO:
                 ])
             bpath = os.path.basename(path)
 
-            # check if it fits in the current loaded tape...
-            size = [x for x in title if 'tamanho: ' in x]
-            if size:
-                if not wbackup.checkIfFitsLTO(path, size[0]):
-                    continue
 
             # if path is not /LTO...
             doBackup = False
@@ -86,6 +81,11 @@ if hasTapeLTO and not runningLTO:
                 # if file not exist or there no susccessfull runs...
                 if not result:
                     doBackup = True
+                    # check if it fits in the current loaded tape...
+                    size = [x for x in title if 'tamanho: ' in x]
+                    if size:
+                       if not wbackup.checkIfFitsLTO(path, size[0]):
+                         doBackup = False
                 # if there's less than 4 susccessfull runs...
                 elif len(result) < 4:
                     doBackup = True

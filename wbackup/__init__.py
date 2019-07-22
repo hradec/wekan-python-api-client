@@ -487,7 +487,7 @@ def updateListWithFreeSpace( list_name, zfree, getCards_result=None ):
 storages = {
     'LIZARD' : '/.LIZARDFS',
     'MOOSE'  : '/.MOOSEFS',
-    'BEEGFS' : '/.BEEGFS',
+    #'BEEGFS' : '/.BEEGFS',
     'JOBS'   : '/atomo/jobs',
 }
 def getStoragesInfo( getCards_result=None ):
@@ -502,11 +502,11 @@ def getStoragesInfo( getCards_result=None ):
     zfree = {
         'LIZARD' : freeSpace( zpath['LIZARD'] ),
         'MOOSE'  : freeSpace( zpath['MOOSE'] ),
-        'BEEGFS' : freeSpace( zpath['BEEGFS'] ),
+#        'BEEGFS' : freeSpace( zpath['BEEGFS'] ),
         'JOBS'   : freeSpace( zpath['JOBS'] ),
     }
-    if not zfree['BEEGFS']['free']:
-        zfree['BEEGFS'] = freeSpace( '/mnt/beegfs' )
+#    if not zfree['BEEGFS']['free']:
+#        zfree['BEEGFS'] = freeSpace( '/mnt/beegfs' )
 
     zpath_list = {}
     zpath_free = {}

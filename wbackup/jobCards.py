@@ -327,7 +327,7 @@ class jobCards:
 
                     if _tamanho:
                         __size = wbackup.convertHtoV( _tamanho[0].split(':')[-1].strip() )
-                        if self.storages['free'][ label ]['free'] - __size < 0:
+                        if label in self.storages['free'] and self.storages['free'][ label ]['free'] - __size < 0:
                             posicao = '<font color="red">**NAO CABE NO STORAGE**</font>'
 
                     mvlog = '/tmp/move_%s.log' % os.path.basename(p)
@@ -379,7 +379,7 @@ class jobCards:
                             posicao  = "**movendo... %3.2f%%**" % (percentage)
                             ttf = wbackup.copyTimeToFinishLTO( p, returnAsString = True )
                             print ttf
-                            if ttf[0]:
+                            if ttf and ttf[0]:
                                 posicao += "\ndecorrido: **%s**" % ttf[1]
                                 posicao += "\nprevisao: **%s**" % ttf[0]
                                 # since we're adding decorrido here, reset the one

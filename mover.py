@@ -41,6 +41,7 @@ def rsync( source, target ):
 # storages
 for storage in wbackup.storages:
     if not 'JOBS' in storage:
+      if 'LIZARD' in storage:
         for list in [ x for x in jobs.lists() if storage in x ]:
             cards = jobs.lists()[list]
             for card in cards:
