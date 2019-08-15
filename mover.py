@@ -67,7 +67,24 @@ for storage in wbackup.storages:
                 target = '/'.join([ wbackup.storages[storage], source ])
                 target = target.replace('//','/')
                 if elapsed > wbackup.move_delay:
-                    rsync( source, target )
+                    # check log file in the LTO machine to see if rsync was DONE
+                    # susscessfully!
+                    result = wbackup.checkRsyncLog( source )
+                    # if file not exist or there no susccessfull runs...
+                    doBackup = False
+                    if not result:
+                        doBackup = True
+                    # if there's less than 4 susccessfull runs...
+                    elif len(result) <= 4:
+                        doBackup = True
+                    elif wbackup.checkRsyncLog4Errors( source ):
+                        #wbackup.removeRsyncLogLTO( path )
+                        doBackup = True
+
+                    if doBackup:
+                        rsync( source, target )
+                    else:
+                        print 'verificado %d vezes.' % len( result )
 
 
 
