@@ -267,22 +267,39 @@ def copyTimeToFinish( p, returnAsString=False, deleteLog = False):
 
 
 # check rsync return code
-def checkRsyncLogLTO( path ):
-    check_cmd = 'grep "return code. 0" /tmp/backup_%s.log 2>/dev/null' % os.path.basename(path)
-    return [ x for x in sshLTO(check_cmd).split('\n') if x.strip() ]
+def checkRsyncLog( path, log='/tmp/move_%s.log' ):
+    return checkRsyncLogLTO( path, lto_mount_path=None, log=log )
+
+def checkRsyncLogLTO( path,  lto_mount_path='/LTO', log='/tmp/backup_%s.log'):
+    check_cmd = 'grep "return code. 0" %s 2>/dev/null' % ( log % os.path.basename(path) )
+    ret = []
+    if lto_mount_path:
+        ret =  [ x for x in sshLTO(check_cmd).split('\n') if x.strip() ]
+    else:
+        print check_cmd
+        ret =  [ x for x in os.popen(check_cmd) if x.strip() ]
+    return ret
 
 # check rsync log and try to detect error in backup.
+def checkRsyncLog4Errors( path, log=None, log_path='/tmp/move_%s.log' ):
+    return checkRsyncLog4ErrorsLTO( path, log=log, lto_mount_path = None, log_path=log_path)
+
 def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO', log_path='/tmp/backup_%s.log' ):
-    label = labelLTO(lto_mount_path)
+    label=''
+    if lto_mount_path:
+        label = labelLTO(lto_mount_path)
     lines = []
     msg = ''
     if not log:
         log_path = log_path % os.path.basename(path)
         check_cmd = 'tail -n 20  %s 2>/dev/null' % log_path
-        log = sshLTO(check_cmd)
+        if lto_mount_path:
+            log = sshLTO(check_cmd)
+        else:
+            log = ''.join(os.popen(check_cmd).readlines())
     log = [ x.strip() for x in log.split('\n') if x.strip() ]
 
-    if log:
+    if len(log) > 5:
         error = 0
         if 'NO SPACE LEFT ON TAPE %s' % label in log[-1]:
             error = 100
@@ -306,11 +323,10 @@ def checkRsyncLog4ErrorsLTO( path, log=None, lto_mount_path = '/LTO', log_path='
                 count -= 1
             lines.reverse()
 
-
         if error >= 100:
             msg = '**JOB NAO CABE NA FITA\nREMOVA O CARTAO DA LISTA %s**' % label
         elif error > 0:
-            if len(checkRsyncLogLTO( path )) <= 1:
+            if len(checkRsyncLogLTO( path, lto_mount_path )) <= 1:
                 return msg
             msg = '**ERRO NO LOG DE BACKUP(%s)...**\n/tmp/backup_%s.log\nO sistema vai tentar novamente...\n' % (error,os.path.basename(path)) #+'\n'.join(log)
             if lines:

@@ -319,11 +319,28 @@ class jobCards:
                     posicao = "**esperando...**"
                     label = self.cards[ os.path.basename(p) ].cardslist.title.split()[-1]
 
-                    if [ x for x in self.all_jobs[job] if label in x or label.lower() in x ]:
+                    storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
+                    target = '/'.join([ wbackup.storages[storage[0]], p ])
+                    percentage = wbackup.copiedPercentage( p, target )
+
+                    paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
+                    paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
+                    if paths_in_label:
+                        result = wbackup.checkRsyncLog( p )
+                        print p,len(result)
                         if len( self.all_jobs[job] )>1:
                             posicao = "**movendo...**"
+                            if percentage > 99.0:
+                                if len(result)>0 and len(result)<=4:
+                                    posicao = "**falta verificar %d vezes**" % (5-len(result))
+                                else:
+                                    posicao = "**terminado\npode apagar %s**" % ', '.join(paths_not_in_label)
+                                    self.pode_apagar += paths_not_in_label
                         else:
                             posicao = "**terminado**"
+                            extra=''
+
+
 
                     if _tamanho:
                         __size = wbackup.convertHtoV( _tamanho[0].split(':')[-1].strip() )
@@ -331,31 +348,33 @@ class jobCards:
                             posicao = '<font color="red">**NAO CABE NO STORAGE**</font>'
 
                     mvlog = '/tmp/move_%s.log' % os.path.basename(p)
-                    if os.path.exists(mvlog):
+                    if os.path.exists(mvlog) and 'terminado' not in posicao:
                         START_TIME = ''.join(os.popen('grep START_TIME %s | tail -1' % mvlog).readlines())
-                        START_TIME = Decimal(START_TIME.split(':')[-1])
-                        elapsed = Decimal(time.time()) - START_TIME
-                        if elapsed < wbackup.move_delay:
-                            extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
-                        else:
-                            if wbackup.moving( '/tmp/move_.*.log' ):
-                                print wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' )
-                                if wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' ):
-                                    storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
-                                    if storage:
-                                        target = '/'.join([ wbackup.storages[storage[0]], p ])
-                                        percentage = wbackup.copiedPercentage( p, target )
-                                        posicao  = "**movendo... %3.2f%%**" % (percentage)
-                                    ttf = wbackup.copyTimeToFinish( p, returnAsString = True )
-                                    print ttf
-                                    if ttf[0]:
-                                        posicao += "\ndecorrido: **%s**" % ttf[1]
-                                        posicao += "\nprevisao: **%s**" % ttf[0]
-                                        _decorrido = []
-                                else:
-                                    extra += '**outra copia terminar...**\n'
+                        if 'NO SPACE LEFT' in START_TIME:
+                            posicao = '<font color="red">**NAO CABE NO STORAGE**</font>'
+                        elif ':' in START_TIME:
+                            START_TIME = Decimal(START_TIME.split(':')[-1])
+                            elapsed = Decimal(time.time()) - START_TIME
+                            if elapsed < wbackup.move_delay:
+                                extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
                             else:
-                                extra += '**comecar...**\n'
+                                if wbackup.moving( '/tmp/move_.*.log' ):
+                                    print wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' )
+                                    if wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' ):
+                                        storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
+                                        if storage:
+                                            posicao  = "**movendo... %3.2f%%**" % (percentage)
+                                        ttf = wbackup.copyTimeToFinish( p, returnAsString = True )
+                                        print ttf
+                                        if ttf[0]:
+                                            posicao += "\ndecorrido: **%s**" % ttf[1]
+                                            posicao += "\nprevisao: **%s**" % ttf[0]
+                                            _decorrido = []
+                                    else:
+                                        extra += '**outra copia terminar...**\n'
+                                else:
+                                    if 'terminado' in posicao or 'falta' in posicao:
+                                        extra += '**comecar...**\n'
                         # checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
 
                 elif "BKP" in self.cards[ os.path.basename(p) ].cardslist.title:
