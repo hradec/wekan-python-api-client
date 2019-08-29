@@ -322,6 +322,7 @@ class jobCards:
                     storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
                     target = '/'.join([ wbackup.storages[storage[0]], p ])
                     percentage = wbackup.copiedPercentage( p, target )
+                    print p, percentage
 
                     paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
                     paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
@@ -352,7 +353,7 @@ class jobCards:
                         START_TIME = ''.join(os.popen('grep START_TIME %s | tail -1' % mvlog).readlines())
                         if 'NO SPACE LEFT' in START_TIME:
                             posicao = '<font color="red">**NAO CABE NO STORAGE**</font>'
-                        elif ':' in START_TIME:
+                        if ':' in START_TIME:
                             START_TIME = Decimal(START_TIME.split(':')[-1])
                             elapsed = Decimal(time.time()) - START_TIME
                             if elapsed < wbackup.move_delay:
@@ -414,7 +415,13 @@ class jobCards:
                             # count the amount of "result: 0" in the log
                             # which should naively indicate that rsync finished
                             # without error.
+                            verificarNvezes = 4
                             checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
+                            vezes = verificarNvezes-len(checkRsyncLogLTO)
+                            vezesStr = 'vez'
+                            if vezes > 1:
+                                vezesStr = 'vezes'
+
                             if job_in_the_tape:
                                 percentage = wbackup.copiedPercentageLTO( p )
 
@@ -435,10 +442,6 @@ class jobCards:
                                 # ok, all files are in the tape, so
                                 # we didn't verified 4 times yet!
                                 else:
-                                    vezes = 4-len(checkRsyncLogLTO)
-                                    vezesStr = 'vez'
-                                    if vezes > 1:
-                                        vezesStr = 'vezes'
                                     posicao = "**esperando... \n(%.2f%% - falta verificar %s %s)**" % (percentage, vezes, vezesStr)
                                     # remove decimals if it's .00 to save char space
                                     posicao = posicao.replace('.00','')
@@ -447,7 +450,12 @@ class jobCards:
                             # have being copied over.
                             else:
                                 # we now only set as "falta apagar" after it has being verified
-                                posicao = "**terminado\npode apagar %s**" % ', '.join([ x for x in self.all_jobs[job] if 'LTO' not in x])
+                                posicao = "**terminado(%3.2f%% feito. Verificado %d %s)\npode apagar %s**" % (
+                                    percentage,
+                                    verificarNvezes-vezes,
+                                    'vez' if verificarNvezes-vezes < 2 else 'vezes',
+                                    ', '.join([ x for x in self.all_jobs[job] if 'LTO' not in x])
+                                )
                                 self.pode_apagar += [ x for x in self.all_jobs[job] if 'LTO' not in x]
 
                         # the job has being deleted from the original folder
