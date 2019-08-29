@@ -47,7 +47,8 @@ for storage in wbackup.storages:
             for card in cards:
                 log = '/tmp/move_%s.log' % card
                 fit = wbackup.checkIfFits(
-                    cards[card].attr['disco'],
+                    # cards[card].attr['disco'],
+                    wbackup.storages[storage],
                     cards[card].attr['tamanho']
                 )
                 if not fit:
@@ -55,10 +56,14 @@ for storage in wbackup.storages:
                     os.system( 'echo "NO SPACE LEFT" | tee -a '+log )
                     continue
 
+                startTime = ''
                 if os.path.exists(log):
                     startTime = ''.join( os.popen( 'cat %s | grep START_TIME:' % log).readlines() ).strip().split(':')[-1]
+
+                if startTime:
                     startTime = Decimal(startTime)
-                else:
+
+                if not startTime:
                     startTime = Decimal(time.time())
                     os.system( 'echo "START_TIME: %s" > %s' % (startTime, log) )
                 elapsed = Decimal(time.time()) - startTime
