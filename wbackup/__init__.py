@@ -23,7 +23,7 @@ _api = None
 def api():
     global _api
     if not _api:
-        _api = WekanApi("http://192.168.0.16:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
+        _api = WekanApi("http://192.168.0.37:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
     return _api
 
 # check if we have a moving happening already
@@ -106,7 +106,7 @@ def ssh( cmd , error='2>/dev/null', timeout=600):
 
 
 # run the command in the LTO machine!
-def sshLTO( cmd , error='2>/dev/null', timeout=600):
+def sshLTO( cmd , error='2>/dev/null', timeout=120):
     return ssh( cmd, error, timeout )
 
 
@@ -156,8 +156,9 @@ def countFilesRsyncLogLTO( path, lto_mount_path = '/LTO' ):
     # fromLog = float( sshLTO(check_cmd).strip() )
     # l='/tmp/%s.lto_file_count.log' % path.strip('/').replace('/','_')
     # if not os.path.exists(l) or ( ( time.time() - int(os.stat(l)[-1]) ) /60 /60 ) > 24  or  os.stat( l )[6] == 0:
-
-    fromFS = float( sshLTO('find %s/%s/ -type f 2>/dev/null | wc -l' % (lto_mount_path, bpath)).strip() )
+    tmp = sshLTO('find %s/%s/ -type f 2>/dev/null | wc -l' % (lto_mount_path, bpath)).strip()
+    print tmp
+    fromFS = float( tmp )
     return fromFS
 
 # get the number of files to create a % of done during backup (only for the current job being backed up)
@@ -359,10 +360,9 @@ def checkIfFitsLTO( path, size_string, lto_mount_path = '/LTO' ):
         return False
     return True
 
-def checkIfFits( path, size_string ):
-    pathSpace = freeSpace(path)
+def checkIfFits( target_path, size_string ):
+    pathSpace = freeSpace(target_path)
     size = convertHtoV(size_string)
-    bpath = os.path.basename(path)
     if pathSpace['free']-(size+1024*10) < 0:
         return False
     return True
