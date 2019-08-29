@@ -35,7 +35,7 @@ labelLTO = wbackup.labelLTO()
 hasTapeLTO = wbackup.hasTapeLTO()
 runningLTO = wbackup.runningLTO()
 ltoFreeSpace = wbackup.convertHtoV(wbackup.freespaceLTO())
-
+ltoLS = wbackup.sshLTO( 'ls -l /LTO/', timeout=30 )
 
 ltoSpaceAfter = ltoFreeSpace
 if labelLTO:
@@ -81,11 +81,13 @@ if hasTapeLTO and not runningLTO:
                 # if file not exist or there no susccessfull runs...
                 if not result:
                     doBackup = True
-                    # check if it fits in the current loaded tape...
-                    size = [x for x in title if 'tamanho: ' in x]
-                    if size:
-                       if not wbackup.checkIfFitsLTO(path, size[0]):
-                         doBackup = False
+
+                    if os.path.basename(path) not in str(ltoLS):
+                        # check if it fits in the current loaded tape...
+                        size = [x for x in title if 'tamanho: ' in x]
+                        if size:
+                           if not wbackup.checkIfFitsLTO(path, size[0]):
+                             doBackup = False
                 # if there's less than 4 susccessfull runs...
                 elif len(result) < 4:
                     doBackup = True
