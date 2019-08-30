@@ -254,7 +254,7 @@ def copyTimeToFinish( p, returnAsString=False, deleteLog = False):
         ret = ( (100.0-zperc[0]) / pdiff ) * tdiff
     else:
         ret = 99999999999999
-    ret_simples = (tdiff/zperc[-1]) * 100.0 - tdiff
+    ret_simples = (tdiff/(zperc[-1]+0.00001)) * 100.0 - tdiff
     falso=''
     if ret_simples < ret:
         falso = ' (+-)'

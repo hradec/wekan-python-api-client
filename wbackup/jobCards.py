@@ -322,7 +322,7 @@ class jobCards:
                     storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
                     target = '/'.join([ wbackup.storages[storage[0]], p ])
                     percentage = wbackup.copiedPercentage( p, target )
-                    print p, percentage
+                    print p, target,  percentage
 
                     paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
                     paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
@@ -356,7 +356,7 @@ class jobCards:
                         if ':' in START_TIME:
                             START_TIME = Decimal(START_TIME.split(':')[-1])
                             elapsed = Decimal(time.time()) - START_TIME
-                            if elapsed < wbackup.move_delay:
+                            if wbackup.move_delay-elapsed > 0:
                                 extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
                             else:
                                 if wbackup.moving( '/tmp/move_.*.log' ):
