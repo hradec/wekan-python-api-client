@@ -163,10 +163,10 @@ def countFilesRsyncLogLTO( path, lto_mount_path = '/LTO' ):
 
 # get the number of files to create a % of done during backup (only for the current job being backed up)
 # cache it every 24 hours
-def jobFileCount( p ):
-    lc='/tmp/%s.file_count.log' % p.strip('/').replace('/','_')
+def jobFileCount( p, forceCount=False ):
+    lc='/tmp/%s.file_count.log' % p.strip('/').replace('/','_').replace('__','_')
     # if os.path.basename(p) in ltoBackup:
-    if not os.path.exists(lc) or ( ( time.time() - int(os.stat(lc)[-1]) ) /60 /60 ) > 24  or  os.stat( lc )[6] == 0:
+    if not os.path.exists(lc) or ( ( time.time() - int(os.stat(lc)[-1]) ) /60 /60 ) > 24  or  os.stat( lc )[6] == 0 or forceCount:
         if '/LTO' in p:
             # calculate from the TAPE folder
             os.popen( wbackup.lto_ssh+''' "find %s -type f" | grep -v ':' | wc -l  2>/dev/null  >  %s ''' % ( p, lc ) )
@@ -205,7 +205,7 @@ def copiedPercentage( source, target, lto_mount_path = '/LTO' ):
     if '/LTO' in target[0:5]:
         target_number_of_files = countFilesRsyncLogLTO( p )
     else:
-        target_number_of_files = jobFileCount( target )
+        target_number_of_files = jobFileCount( target, forceCount=True )
     # calculate a percentage with the wbackup.jobFileCound() above!
     perc = target_number_of_files / source_number_of_files
     # do a floor of the percentage * 100, so
