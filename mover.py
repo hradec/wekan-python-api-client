@@ -23,6 +23,7 @@ check_log = 'ls /tmp/move_%s.log'
 # new class which holds all cards for all jobs,
 # and can update single cards
 jobs = wbackup.jobCards()
+alljobs = wbackup.findAllJobs()
 
 def rsync( source, target ):
     card = os.path.basename(source)
@@ -46,15 +47,18 @@ for storage in wbackup.storages:
             cards = jobs.lists()[list]
             for card in cards:
                 log = '/tmp/move_%s.log' % card
-                fit = wbackup.checkIfFits(
-                    # cards[card].attr['disco'],
-                    wbackup.storages[storage],
-                    cards[card].attr['tamanho']
-                )
-                if not fit:
-                    print card, "won't fit in", list
-                    os.system( 'echo "NO SPACE LEFT" | tee -a '+log )
-                    continue
+
+                # if the job exists only in one storage, check if it fits
+                if len(alljobs[card])<2:
+                    fit = wbackup.checkIfFits(
+                        # cards[card].attr['disco'],
+                        wbackup.storages[storage],
+                        cards[card].attr['tamanho']
+                    )
+                    if not fit:
+                        print card, "won't fit in", list
+                        os.system( 'echo "NO SPACE LEFT" | tee -a '+log )
+                        continue
 
                 startTime = ''
                 if os.path.exists(log):

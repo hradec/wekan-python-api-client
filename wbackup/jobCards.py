@@ -10,6 +10,8 @@ import math
 
 import wbackup
 
+verificarNvezes = 4
+
 class jobCards:
     gifs={
         'esperando' : [
@@ -328,14 +330,22 @@ class jobCards:
                     paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
                     if paths_in_label:
                         result = wbackup.checkRsyncLog( p )
-                        print p,len(result)
+                        vezes = len(result)
+                        print p,vezes
                         if len( self.all_jobs[job] )>1:
                             posicao = "**movendo...**"
                             if percentage > 99.0:
-                                if len(result)>0 and len(result)<=4:
-                                    posicao = "**falta verificar %d vezes**" % (5-len(result))
+                                if vezes>0 and vezes<=verificarNvezes:
+                                    posicao = "**falta verificar %d vezes**" % (verificarNvezes-len(result))
                                 else:
-                                    posicao = "**terminado\npode apagar %s**" % ', '.join(paths_not_in_label)
+                                    if vezes < 0:
+                                        vezes = 0
+                                    posicao =  "**terminado(%3.2f%% feito. Verificado %d %s)\npode apagar %s**" % (
+                                        percentage,
+                                        vezes,
+                                        'vez' if vezes < 2 else 'vezes',
+                                        ', '.join(paths_not_in_label)
+                                    )
                                     self.pode_apagar += paths_not_in_label
                         else:
                             posicao = "**terminado**"
@@ -415,7 +425,6 @@ class jobCards:
                             # count the amount of "result: 0" in the log
                             # which should naively indicate that rsync finished
                             # without error.
-                            verificarNvezes = 4
                             checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
                             vezes = verificarNvezes-len(checkRsyncLogLTO)
                             vezesStr = 'vez'
