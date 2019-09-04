@@ -198,7 +198,7 @@ class jobCards:
 
     # update the cards in the BACKUP board
     def update( self, job ):
-        self.labelLTO = wbackup.labelLTO()
+        # self.labelLTO = wbackup.labelLTO()
 
         p = [ x for x in self.all_jobs[job] if '/atomo' in x[0:7] ]
         if p:
