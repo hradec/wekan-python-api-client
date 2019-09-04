@@ -8,6 +8,10 @@ from glob import glob
 from decimal import Decimal
 from jobCards import jobCards
 
+# the server where the LTO drive is installed!
+# this system assumes LTFS is used with the tapes, and it
+# fully installed in the server.
+# by default, /LTO is the mount point. 
 lto_ssh='ssh root@nexenta.local'
 
 # time to start move command
@@ -147,7 +151,64 @@ def lsLTO( lto_mount_path = '/LTO' ):
 
 # returns the tape label
 def labelLTO( lto_mount_path = '/LTO' ):
-    return sshLTO('attr -g ltfs.volumeName %s | grep -v Attribute' % lto_mount_path).split('\n')[-1]
+    # retrieve the label of the mounted tape!
+    labelCmd = 'attr -g ltfs.volumeName %s | grep -v Attribute' % lto_mount_path
+    label = sshLTO(labelCmd).split('\n')[-1]
+    ltoLOADED = ''.join(sshLTO('mt status | grep ONLINE')).strip()
+    ltfsRUNNING = ''.join(sshLTO('pgrep -fa ltfs.*LTO')).strip()
+    # if no label, but tape is inserted, try to mount it!
+    if not label:
+        if  ltoLOADED and not ltfsRUNNING:
+            msgCard( 'MOVER PARA O LTO', 'TAPE', "Montando o tape... aguarde." )
+            # if safe, we can try to MOUNT the inserted LTO drive!
+            mountLog =  ''.join( sshLTO('mount %s' % lto_mount_path) )
+            print( mountLog )
+            # try to retrieve the label again, after mounting it!
+            label = sshLTO(labelCmd).split('\n')[-1]
+        else:
+            type = 'WARNING'
+            title = 'Nao tenho certeza! Verificar manualmente por favor!'
+            if  ltfsRUNNING:
+                title = "We can't mount the LTO because it's being dismounted right now..."
+                title = 'aguarde...'
+            elif not ltoLOADED:
+                title = "We can't mount the LTO because there's no tape to be mounted..."
+                title = 'Nao a tape no drive.'
+            else:
+                type = 'ERROR'
+                title = "We can't mount the LTO probably because the tape can't be mounted!! Is it a new tape? or maybe it need to run ltfsck!"
+                title = "ERRO - precisa fazer ltfsck manual ou formatar!!"
+
+            msgCard( 'MOVER PARA O LTO', 'TAPE', title, type )
+
+    if label:
+        msgCard( 'MOVER PARA O LTO', 'TAPE', label+' loaded.' )
+
+    return label
+
+# create and update an information card in a list!
+# the card title needs an ID to identify it for editing
+def msgCard( listName, id, message, type=None ):
+    getCards_result = getCards()
+    d     = getCards_result['data']
+    cards = getCards_result['cards']
+    list = d['BACKUP'][listName][".class"]
+    b = list.board
+    if type == 'ERROR':
+        title = '<font color="red">%s</font>' % message
+    elif type == 'WARNING':
+        title = '<font color="orange">%s</font>' % message
+    else:
+        title = '<font color="green">%s</font>' % message
+
+    title = '**%s: %s**' % (id.upper(), title)
+    msgCard = [ x for x in d[b.title][list.title].keys() if id.lower() in x.split('\n')[0].lower() ]
+    if msgCard:
+        cards[msgCard[0].replace('*','')].modify( title=title )
+    else:
+        list.add_card( title )
+
+
 
 # get the number of files in the log for %
 def countFilesRsyncLogLTO( path, lto_mount_path = '/LTO' ):
@@ -388,7 +449,14 @@ def getCards( board = 'BACKUP' ):
             for card in list.get_cards():
                 d[b.title][list.title][card.title]=card
                 jobs.append(card.title)
-                cards[ card.title.split('\n')[0].replace("*","") ] = card
+                key = card.title.split('\n')[0].replace("*","")
+                if key in cards:
+                    if type(cards[ key ]) == type([]):
+                        cards[ key ] += [ card ]
+                    else:
+                        cards[ key ] = [ cards[ key ], card ]
+                else:
+                    cards[ key ] = card
     _getCards_result = { 'data' : d, 'cards' : cards, 'jobs' : jobs }
     return _getCards_result
 

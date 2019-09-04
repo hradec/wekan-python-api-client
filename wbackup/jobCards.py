@@ -66,16 +66,40 @@ class jobCards:
         self._lists = {}
         self._lists_clean = {}
         for job in self.keys():
-            if self.cards[job].cardslist.title not in self._lists:
-                self._lists[self.cards[job].cardslist.title] = {}
-            self._lists[self.cards[job].cardslist.title][job] = self.cards[job]
-            if 'livre' not in job:
-                if self.cards[job].cardslist.title not in self._lists_clean:
-                    self._lists_clean[self.cards[job].cardslist.title] = {}
-                self._lists_clean[self.cards[job].cardslist.title][job] = self.cards[job]
-                # keep data that is in the card title
-                # inside attrs disctionary in the card object
-                self._all_attrs( self.cards[job] )
+            _card = self._cards(job)
+            if _card:
+                if _card.cardslist.title not in self._lists:
+                    self._lists[_card.cardslist.title] = {}
+                self._lists[_card.cardslist.title][job] = _card
+                if 'livre' not in job:
+                    if _card.cardslist.title not in self._lists_clean:
+                        self._lists_clean[_card.cardslist.title] = {}
+                    self._lists_clean[_card.cardslist.title][job] = _card
+                    # keep data that is in the card title
+                    # inside attrs disctionary in the card object
+                    self._all_attrs( _card )
+
+    # only return cards of BKP lists which the tape is inserted
+    def _cards( self, job ):
+        _card = self.cards[ job ]
+
+        if type(_card) == type([]):
+            cards = [ x for x in _card if 'BKP' in  x.cardslist.title and self.labelLTO in x.cardslist.title ]
+            if not cards:
+                _card = None
+            else:
+                # we return just the first card, since we shouldn't have more than one
+                # card for the same job on the same tape!
+                _card = cards[0]
+                print job, _card
+
+        # if its a card in a BKP list that is not the tape in the LTO drive,
+        # ignore it! This should speed up the run since we won't process
+        # cards in all BKP lists, but the one with the tape in the drive!
+        if _card and 'BKP' in  _card.cardslist.title and self.labelLTO not in  _card.cardslist.title and '/LTO' in _card.title:
+            _card = None
+
+        return _card
 
     # cleanup formating and html junk from a string
     def _cleanup_string( self, txt ):
@@ -96,31 +120,33 @@ class jobCards:
     def _all_attrs( self, card ):
         value = ''
         if type(card) == type(""):
-            card = self.cards[card]
-        title = card.title
-        for line in [ x for x in title.split('\n') if ':' in x ]:
-            line = self._cleanup_string( line )
-            self._attr( card, line.split(':')[0] )
+            card = self._cards(card)
+        if card:
+            title = card.title
+            for line in [ x for x in title.split('\n') if ':' in x ]:
+                line = self._cleanup_string( line )
+                self._attr( card, line.split(':')[0] )
 
     # store attribute from a card title in the
     # .attrs dict in the card object
     def _attr( self, card, attr ):
         value = ''
         if type(card) == type(""):
-            card = self.cards[card]
-        title = self._cleanup_title_line( card.title ).split('\n')
-        value = [ self._cleanup_string(x).split(':')[-1].strip() for x in title if attr in x ]
-        if not value:
-            return ''
-        value = value[0]
-        if not hasattr( card, 'attr' ):
-            card.attr = {}
-        card.attr[ attr ] = value
+            card = self._cards(job)
+        if card:
+            title = self._cleanup_title_line( card.title ).split('\n')
+            value = [ self._cleanup_string(x).split(':')[-1].strip() for x in title if attr in x ]
+            if not value:
+                return ''
+            value = value[0]
+            if not hasattr( card, 'attr' ):
+                card.attr = {}
+            card.attr[ attr ] = value
 
-        if 'tamanho' == attr:
-            card.attr[ 'raw_'+attr ] = wbackup.convertHtoV(value)
-        if 'disco' == attr:
-            card.attr[ 'path' ] = '/'.join([ value, title[0] ]).replace('//','/')
+            if 'tamanho' == attr:
+                card.attr[ 'raw_'+attr ] = wbackup.convertHtoV(value)
+            if 'disco' == attr:
+                card.attr[ 'path' ] = '/'.join([ value, title[0] ]).replace('//','/')
         return value
 
 
@@ -138,7 +164,7 @@ class jobCards:
 
     # one can use this class like a dictionary
     def __getitem__( self, job_name ):
-        return self.cards[ os.path.basename(job_name) ]
+        return self._cards( os.path.basename(job_name) )
 
 
     def strtime( self, secs ):
@@ -172,6 +198,8 @@ class jobCards:
 
     # update the cards in the BACKUP board
     def update( self, job ):
+        self.labelLTO = wbackup.labelLTO()
+
         p = [ x for x in self.all_jobs[job] if '/atomo' in x[0:7] ]
         if p:
             p = p[0]
@@ -183,13 +211,19 @@ class jobCards:
         jobNumber = int(os.path.basename(p).split('.')[0])
         if jobNumber < 9000 and jobNumber > 0:
           # if jobNumber==621:
-            # print p
+            print p
 
             # get the title of the card, if its already exist
             card_title = ""
             hasCard = os.path.basename(p) in self.j and os.path.basename(p) in self.cards.keys()
             if hasCard:
-                card_title = self.cards [ os.path.basename(p) ].data['title'].strip()
+                _card = self._cards( os.path.basename(p) )
+                # if the card is in a BKP list, but the list doesn't have the name of the
+                # inserted tape, _card will be None!
+                if not _card:
+                    hasCard = False
+                else:
+                    card_title = _card.data['title'].strip()
 
             # keep data that is in the card title
             _disco      = [ x for x in card_title.split('\n') if 'disco' in x ]
@@ -285,7 +319,7 @@ class jobCards:
             # if the card exists, we construct the posicao variable
             # for it, depending on the list the card is in...
             if hasCard:
-                if self.cards[ os.path.basename(p) ].cardslist.title == "JOBS":
+                if "JOBS" in _card.cardslist.title:
                     if months < 2:
                         posicao = "**em producao**"
                     elif months < 3:
@@ -293,7 +327,7 @@ class jobCards:
                     else:
                         posicao = '**<font color="red">Fazer Backup?</font>**'
 
-                elif "LTO" in self.cards[ os.path.basename(p) ].cardslist.title:
+                elif "LTO" in _card.cardslist.title:
                     posicao = "**esperando...**"
                     # now update the card which is being backed up
                     # print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
@@ -317,11 +351,11 @@ class jobCards:
 
                         self.lto_total += m
 
-                elif "MOVER PARA" in self.cards[ os.path.basename(p) ].cardslist.title:
+                elif "MOVER PARA" in _card.cardslist.title:
                     posicao = "**esperando...**"
-                    label = self.cards[ os.path.basename(p) ].cardslist.title.split()[-1]
+                    label = _card.cardslist.title.split()[-1]
 
-                    storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
+                    storage = [x for x in wbackup.storages if x in _card.list.title]
                     target = '/'.join([ wbackup.storages[storage[0]], p ])
                     percentage = wbackup.copiedPercentage( p, target )
                     print p, target,  percentage
@@ -370,9 +404,9 @@ class jobCards:
                                 extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
                             else:
                                 if wbackup.moving( '/tmp/move_.*.log' ):
-                                    print wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' )
-                                    if wbackup.moving( self.cards[ os.path.basename(p) ].attr['path'] + '.*/tmp/move_.*.log' ):
-                                        storage = [x for x in wbackup.storages if x in self.cards[ os.path.basename(p) ].list.title]
+                                    print wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' )
+                                    if wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' ):
+                                        storage = [x for x in wbackup.storages if x in _card.list.title]
                                         if storage:
                                             posicao  = "**movendo... %3.2f%%**" % (percentage)
                                         ttf = wbackup.copyTimeToFinish( p, returnAsString = True )
@@ -388,12 +422,12 @@ class jobCards:
                                         extra += '**comecar...**\n'
                         # checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
 
-                elif "BKP" in self.cards[ os.path.basename(p) ].cardslist.title:
+                elif "BKP" in _card.cardslist.title:
                     job_in_the_tape = [ x for x in self.all_jobs[job] if '/LTO' in x[0:6] ]
                     posicao = "**esperando...**"
                     if 'esperando...' in card_title:
                         # TODO: write the code to start rsync when cards have "esperando..." in it, and are in a BKP* list
-                        if self.labelLTO in self.cards[ os.path.basename(p) ].cardslist.title:
+                        if self.labelLTO in _card.cardslist.title:
                             tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
                             print tailLog
                             if 'JOB NAO CABE NA FITA' in tailLog:
@@ -531,34 +565,42 @@ class jobCards:
 
             # if a card exists, edit it!
             if hasCard:
-                if title.strip() != self.cards[ os.path.basename(p) ].data['title'].strip() or 1:
-                    # print title.strip() != self.cards[ os.path.basename(p) ].data['title'].strip()
-                    # print title, self.cards[ os.path.basename(p) ].data['title']
-                    # print self.cards[ os.path.basename(p) ].cardslist.data
-                    # print self.cards[ os.path.basename(p) ].setList('JOBS')
+                if title.strip() != _card.data['title'].strip() or 1:
 
-                    if not self.cards[ os.path.basename(p) ].modify( title=title ):
-                        print "Error updating card for %s!!" % p
+                    updateCard = True
+                    # don't update card if the card already belongs to another LTO tape
+                    # different from the one currently in the Tape!
+                    if '/LTO' in disco:
+                        if 'BKP' in _posicao and self.labelLTO not in _posicao:
+                            updateCard = False
 
-                    # if not self.cards[ os.path.basename(p) ].modify( description="TESTE" ):
-                    #     print "Error updating card for %s!!" % p
-
-                # else:
-                #     print "No update needed!"
+                    # update the card if true!
+                    if updateCard:
+                        if not _card.modify( title=title ):
+                            print "Error updating card for %s!!" % p
 
             # or else create a new card
             else:
                 for b  in self.api.get_user_boards('BACKUP'):
-                    for l in b.get_cardslists('JOBS'):
-                        l.add_card(title)
+                    if '/LTO' in disco:
+                        for l in b.get_cardslists(self.labelLTO):
+                            l.add_card(title)
+                    else:
+                        for l in b.get_cardslists('JOBS'):
+                            l.add_card(title)
 
-            # update the free space available in free space card
-            # of the list with the same name as the current inserted TAPE
-            if self.ltoFreeSpace['free'] and os.path.basename(p) in self.ltoBackup:
-                ltoList = [x for x in self.d['BACKUP'].keys() if self.labelLTO in x]
-                # if the current TAPE name exists in the board as a list
-                if ltoList:
-                    # list = self.cards[ os.path.basename(p) ].cardslist
-                    list = self.d['BACKUP'][self.labelLTO][".class"]
-                    if 'BKP' in  list.title or 'EXT' in  list.title:
-                        wbackup.updateListWithFreeSpace( self.labelLTO, self.ltoFreeSpace )
+    def updateLTOfreeSpaceCard(self):
+        # update the free space available in free space card
+        # of the list with the same name as the current inserted TAPE
+        if self.labelLTO and self.ltoFreeSpace['free'] > 0:
+            ltoList = [x for x in self.d['BACKUP'].keys() if self.labelLTO in x]
+            # if the current TAPE name exists in the board as a list
+            if ltoList:
+                print self.labelLTO, self.ltoFreeSpace['free']
+                list = self.d['BACKUP'][self.labelLTO][".class"]
+                if 'BKP' in  list.title or 'EXT' in  list.title:
+                    wbackup.updateListWithFreeSpace( self.labelLTO, self.ltoFreeSpace )
+
+
+
+#
