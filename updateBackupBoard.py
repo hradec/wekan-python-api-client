@@ -8,6 +8,8 @@ from glob import glob
 import random, time
 import os
 import math
+from multiprocessing import Pool
+
 
 wbackup.runOnlyOnce( __file__ )
 
@@ -16,9 +18,18 @@ jobs = wbackup.jobCards()
 # update free space card for the BKP list of the inserted tape!
 jobs.updateLTOfreeSpaceCard()
 # now go over all jobs os available storages and update the correspondent cards!
-for job in jobs.jobsOnDisk():
-    # print job
-    jobs.update( job )
+if 0:
+    # single thread version
+    for job in jobs.jobsOnDisk():
+        jobs.update( job )
+else:
+    # multithreaded version
+    def jobs_update( job):
+        jobs.update( job )
+
+    p = Pool(5)
+    p.map( jobs_update, jobs.jobsOnDisk() )
+
 
 
 # variables below only fill up after calling update on cards.
