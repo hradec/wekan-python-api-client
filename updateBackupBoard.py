@@ -27,7 +27,7 @@ else:
     def jobs_update( job):
         jobs.update( job )
 
-    p = Pool(2)
+    p = Pool(100)
     p.map( jobs_update, jobs.jobsOnDisk() )
 
 

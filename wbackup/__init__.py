@@ -11,8 +11,11 @@ from jobCards import jobCards
 # the server where the LTO drive is installed!
 # this system assumes LTFS is used with the tapes, and it
 # fully installed in the server.
-# by default, /LTO is the mount point. 
+# by default, /LTO is the mount point.
 lto_ssh='ssh root@nexenta.local'
+
+# speeds up ssh connection a bit
+os.environ['SSH_AUTH_SOCK'] = ''
 
 # time to start move command
 move_delay = Decimal(60*60*1.45)
