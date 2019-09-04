@@ -13,9 +13,13 @@ wbackup.runOnlyOnce( __file__ )
 
 
 jobs = wbackup.jobCards()
+# update free space card for the BKP list of the inserted tape!
+jobs.updateLTOfreeSpaceCard()
+# now go over all jobs os available storages and update the correspondent cards!
 for job in jobs.jobsOnDisk():
     # print job
     jobs.update( job )
+
 
 # variables below only fill up after calling update on cards.
 # jobs that exist in multiple storages!!
