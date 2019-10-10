@@ -52,6 +52,7 @@ if labelLTO:
 # being copied to it... (if it can't connect to the lto server,
 # runningLTO will have ERROR in it, so it won't run as well.)
 print '========>',runningLTO
+print '========>',hasTapeLTO
 if hasTapeLTO and not runningLTO:
     # go over all cards that are waiting to be backed up,
     # in the list with the same name as the loaded TAPE

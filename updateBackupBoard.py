@@ -18,17 +18,23 @@ jobs = wbackup.jobCards()
 # update free space card for the BKP list of the inserted tape!
 jobs.updateLTOfreeSpaceCard()
 # now go over all jobs os available storages and update the correspondent cards!
-if 0:
+if 1:
     # single thread version
     for job in jobs.jobsOnDisk():
         jobs.update( job )
 else:
     # multithreaded version
-    def jobs_update( job):
-        jobs.update( job )
+    j = jobs.jobsOnDisk()
+    def jobs_update( n ):
+	print n
+	try:
+        	jobs.update( n )
+	except:
+		print "ERROR : ",n
+	return 0
 
-    p = Pool(100)
-    p.map( jobs_update, jobs.jobsOnDisk() )
+    p = Pool(4)
+    p.map( jobs_update, j )
 
 
 

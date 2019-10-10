@@ -14,8 +14,8 @@ wbackup.runOnlyOnce( __file__ )
 
 cmd = ' ; '.join([
     'date | tee -a /tmp/move_%s.log',
-    '''echo rsync -avpP --exclude "'*:*'" %s/ %s/ | egrep -v "/$" | tee -a /tmp/move_%s.log''',
-    '''sudo rsync -avpP --exclude "'*:*'" %s/ %s/ | egrep -v "/$" | tee -a /tmp/move_%s.log''',
+    '''echo timeout 550 rsync -avpP --exclude "'*:*'" --inplace %s/ %s/ | egrep -v "/$" | tee -a /tmp/move_%s.log''',
+    '''sudo timeout 550 rsync -avpP --exclude "'*:*'" --inplace %s/ %s/ | egrep -v "/$" | tee -a /tmp/move_%s.log''',
     'echo "return code: $?" | tee -a /tmp/move_%s.log',
 ])
 check_log = 'ls /tmp/move_%s.log'

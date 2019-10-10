@@ -55,14 +55,14 @@ def pgrep( file ):
 def runOnlyOnce( file , maxProcesses=3, echo=True ):
     processes = os.popen("ps -AHfc | grep %s | grep -v grep | grep -v tail" % os.path.basename(file)).readlines()
     # print len(processes), processes
-    if echo:
-        print ""
-        print time.ctime()
-        print "="*80
     if len( processes ) > maxProcesses:
         if echo:
     	       print "Exiting... %s is already running..." % file
     	exit(0)
+    if echo:
+        print ""
+        print time.ctime()
+        print "="*80
 
 # convert data size in Humam readable values to actual number of bytes.
 # also converts % to values betwen 0.0 and 1.0(100%)
