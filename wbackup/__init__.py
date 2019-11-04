@@ -593,7 +593,7 @@ def getStoragesInfo( getCards_result=None ):
         'MOOSE'  : freeSpace( zpath['MOOSE'] ),
 #        'BEEGFS' : freeSpace( zpath['BEEGFS'] ),
         'JOBS'   : freeSpace( zpath['JOBS'] ),
-	'BTR10TB': freeSpace( zpath['BTR10TB'] ),
+	    'BTR10TB': freeSpace( zpath['BTR10TB'] ),
     }
 #    if not zfree['BEEGFS']['free']:
 #        zfree['BEEGFS'] = freeSpace( '/mnt/beegfs' )
