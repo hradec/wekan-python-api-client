@@ -475,6 +475,7 @@ def findAllJobs( ltoLS=[] ):
     folders += glob("/.LIZARDFS/atomo/jobs/*")
     folders += glob("/.MOOSEFS/atomo/jobs/*")
     folders += glob("/smb/Backups-3ds/atomo/jobs/*")
+    folders += glob("/BTRFS10TB/atomo/jobs/*")
     folders.sort()
     repetidos={}
     for p in folders+ltoLS:
@@ -576,6 +577,7 @@ storages = {
     'MOOSE'  : '/.MOOSEFS',
     #'BEEGFS' : '/.BEEGFS',
     'JOBS'   : '/atomo/jobs',
+    'BTR10TB': '/BTRFS10TB/atomo/jobs',
 }
 def getStoragesInfo( getCards_result=None ):
     global _getCards_result
@@ -591,6 +593,7 @@ def getStoragesInfo( getCards_result=None ):
         'MOOSE'  : freeSpace( zpath['MOOSE'] ),
 #        'BEEGFS' : freeSpace( zpath['BEEGFS'] ),
         'JOBS'   : freeSpace( zpath['JOBS'] ),
+	'BTR10TB': freeSpace( zpath['BTR10TB'] ),
     }
 #    if not zfree['BEEGFS']['free']:
 #        zfree['BEEGFS'] = freeSpace( '/mnt/beegfs' )

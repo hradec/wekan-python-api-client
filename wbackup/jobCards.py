@@ -221,6 +221,7 @@ class jobCards:
                 # if the card is in a BKP list, but the list doesn't have the name of the
                 # inserted tape, _card will be None!
                 if not _card:
+                    print p
                     hasCard = False
                 else:
                     card_title = _card.data['title'].strip()
