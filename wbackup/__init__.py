@@ -121,14 +121,14 @@ def sshLTO( cmd , error='2>/dev/null', timeout=120):
 # returns '' if nothing is being backed up!
 def runningLTO( lto_mount_path = '/LTO' ):
     # ltoBackup = sshLTO( "pgrep -fa rsync.*%s" % lto_mount_path.strip('/'), '2>/dev/null ; ERROR=$? ; [ $ERROR -gt 0 ] && echo ERROR $ERROR' ).split('\n')
-    ltoBackup = sshLTO( "pgrep -fa rsync.*%s" % lto_mount_path.strip('/') ).split('\n')
+    ltoBackup = sshLTO( "pgrep -fa rsync.*%s | grep -v bash" % lto_mount_path.strip('/') ).split('\n')
     if 'ERROR' in ''.join(ltoBackup):
         ltoBackup = ''.join(ltoBackup)
     elif len(ltoBackup) > 1:
     	ltoBackup = ltoBackup[-1].split()[-2].strip().rstrip('/')
     else:
     	ltoBackup = ''
-    print "1 ===>", ltoBackup
+    print "being backuped up to lto right now  ===>", ltoBackup
     return ltoBackup
 
 # returns the free space of the LTO tape current in the drive!
@@ -220,8 +220,9 @@ def countFilesRsyncLogLTO( path, lto_mount_path = '/LTO' ):
     # fromLog = float( sshLTO(check_cmd).strip() )
     # l='/tmp/%s.lto_file_count.log' % path.strip('/').replace('/','_')
     # if not os.path.exists(l) or ( ( time.time() - int(os.stat(l)[-1]) ) /60 /60 ) > 24  or  os.stat( l )[6] == 0:
-    tmp = sshLTO('find %s/%s/ -type f 2>/dev/null | wc -l' % (lto_mount_path, bpath)).strip()
-    print tmp
+    cmd = 'find %s/%s/ -type f 2>/dev/null | wc -l' % (lto_mount_path, bpath)
+    tmp = sshLTO(cmd).strip()
+    print cmd,'[',tmp,']'
     fromFS = float( tmp )
     return fromFS
 
@@ -287,7 +288,7 @@ def copiedPercentage( source, target, lto_mount_path = '/LTO' ):
 # return a prediction of the amount of time remaining
 # based on the percentage log for the job
 def copyTimeToFinishLTO( p, returnAsString=False, deleteLog = False):
-    copyTimeToFinish( p, returnAsString, deleteLog)
+    return copyTimeToFinish( p, returnAsString, deleteLog)
 
 def copyTimeToFinish( p, returnAsString=False, deleteLog = False):
     l = '/tmp/%s.timed_percentage.log' % p.strip('/').replace('/','_')
@@ -577,7 +578,7 @@ storages = {
     'MOOSE'  : '/.MOOSEFS',
     #'BEEGFS' : '/.BEEGFS',
     'JOBS'   : '/atomo/jobs',
-    'BTR10TB': '/BTRFS10TB/atomo/jobs',
+    'BTRFS10TB': '/BTRFS10TB',
 }
 def getStoragesInfo( getCards_result=None ):
     global _getCards_result
@@ -593,7 +594,7 @@ def getStoragesInfo( getCards_result=None ):
         'MOOSE'  : freeSpace( zpath['MOOSE'] ),
 #        'BEEGFS' : freeSpace( zpath['BEEGFS'] ),
         'JOBS'   : freeSpace( zpath['JOBS'] ),
-	    'BTR10TB': freeSpace( zpath['BTR10TB'] ),
+	    'BTRFS10TB': freeSpace( zpath['BTRFS10TB'] ),
     }
 #    if not zfree['BEEGFS']['free']:
 #        zfree['BEEGFS'] = freeSpace( '/mnt/beegfs' )

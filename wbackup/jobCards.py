@@ -42,6 +42,7 @@ class jobCards:
 
         # gather information from the LTO machine
         self.ltoBackup = wbackup.runningLTO()
+        print self.ltoBackup
         self.ltoFreeSpace = wbackup.freeSpace( '/LTO' )
         self.ltoLS = wbackup.lsLTO()
         self.labelLTO = wbackup.labelLTO()
@@ -208,7 +209,8 @@ class jobCards:
 
 
         # only consider real job numbers
-        jobNumber = int(os.path.basename(p).split('.')[0])
+        try: jobNumber = int(os.path.basename(p).split('.')[0])
+        except: jobNumber = 99999999
         if jobNumber < 9000 and jobNumber > 0:
           # if jobNumber==621:
             print p
@@ -221,7 +223,7 @@ class jobCards:
                 # if the card is in a BKP list, but the list doesn't have the name of the
                 # inserted tape, _card will be None!
                 if not _card:
-                    print p
+                    print "card in bkp, but tape not inserted, so create a new card for:",p
                     hasCard = False
                 else:
                     card_title = _card.data['title'].strip()
@@ -320,7 +322,7 @@ class jobCards:
             # if the card exists, we construct the posicao variable
             # for it, depending on the list the card is in...
             if hasCard:
-                if "JOBS" in _card.cardslist.title:
+                if [ x for x in ["JOBS","LIZARD","BTRFS"] if x in _card.cardslist.title ]:
                     if months < 2:
                         posicao = "**em producao**"
                     elif months < 3:
@@ -328,7 +330,9 @@ class jobCards:
                     else:
                         posicao = '**<font color="red">Fazer Backup?</font>**'
 
-                elif "LTO" in _card.cardslist.title:
+                if "LTO" in _card.cardslist.title:
+                    extra=''
+                    _decorrido = []
                     posicao = "**esperando...**"
                     # now update the card which is being backed up
                     # print os.path.basename(p) in ltoBackup, os.path.basename(p), ltoBackup
@@ -353,7 +357,6 @@ class jobCards:
                         self.lto_total += m
 
                 elif "MOVER PARA" in _card.cardslist.title:
-                    posicao = "**esperando...**"
                     label = _card.cardslist.title.split()[-1]
 
                     storage = [x for x in wbackup.storages if x in _card.list.title]
@@ -363,6 +366,8 @@ class jobCards:
 
                     paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
                     paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
+                    print paths_in_label
+                    extra = ''
                     if paths_in_label:
                         result = wbackup.checkRsyncLog( p )
                         vezes = len(result)
@@ -370,21 +375,22 @@ class jobCards:
                         if len( self.all_jobs[job] )>1:
                             posicao = "**movendo...**"
                             if percentage > 99.0:
-                                if vezes>0 and vezes<=verificarNvezes:
+                                if vezes>=0 and vezes<=verificarNvezes:
                                     posicao = "**falta verificar %d vezes**" % (verificarNvezes-len(result))
+                                    extra = " "
                                 else:
                                     if vezes < 0:
                                         vezes = 0
-                                    posicao =  "**terminado(%3.2f%% feito. Verificado %d %s)\npode apagar %s**" % (
-                                        percentage,
+                                    posicao =  "**terminado\n(Verificado %d %s)\npode apagar:**" % (
                                         vezes,
                                         'vez' if vezes < 2 else 'vezes',
-                                        ', '.join(paths_not_in_label)
                                     )
+                                    extra = "%s\n" % ', '.join(paths_not_in_label)
                                     self.pode_apagar += paths_not_in_label
                         else:
-                            posicao = "**terminado**"
-                            extra=''
+                            extra = "copia: **terminada**"
+                    if extra=="":
+                    	posicao = "**esperando...**"
 
 
 
@@ -394,7 +400,7 @@ class jobCards:
                             posicao = '<font color="red">**NAO CABE NO STORAGE**</font>'
 
                     mvlog = '/tmp/move_%s.log' % os.path.basename(p)
-                    if os.path.exists(mvlog) and 'terminado' not in posicao:
+                    if os.path.exists(mvlog) and 'terminad' not in extra:
                         START_TIME = ''.join(os.popen('grep START_TIME %s | tail -1' % mvlog).readlines())
                         if 'NO SPACE LEFT' in START_TIME:
                             posicao = '<font color="red">**NAO CABE NO STORAGE**</font>'
@@ -417,7 +423,11 @@ class jobCards:
                                             posicao += "\nprevisao: **%s**" % ttf[0]
                                             _decorrido = []
                                     else:
-                                        extra += '**outra copia terminar...**\n'
+                                        if 'terminad' not in posicao:
+                                            extra += '**esperando outra copia terminar...**\n'
+                                            if 'esperando' in posicao:
+                                                extra += '**outra copia terminar...**\n'
+                                        extra += "**(%3.2f%% feito)**\n" % percentage
                                 else:
                                     if 'terminado' in posicao or 'falta' in posicao:
                                         extra += '**comecar...**\n'
@@ -435,6 +445,7 @@ class jobCards:
                                 posicao += '\n<font color="red"> %s </font>' % tailLog
 
                     # if the path is being copied over right now... (self.ltoBackup tells us that!)
+                    print os.path.basename(p) in self.ltoBackup, os.path.basename(p), self.ltoBackup
                     if os.path.basename(p) in self.ltoBackup:
                         posicao="**movendo para o LTO...**"
                         # if the job exists in the /LTO folder, we can check the percentage
@@ -443,8 +454,8 @@ class jobCards:
                             percentage = wbackup.copiedPercentageLTO( p )
                             posicao  = "**movendo... %3.2f%%**" % (percentage)
                             ttf = wbackup.copyTimeToFinishLTO( p, returnAsString = True )
-                            print ttf
-                            if ttf and ttf[0]:
+                            print "wbackup.copyTimeToFinishLTO", ttf
+                            if len(ttf)>1:
                                 posicao += "\ndecorrido: **%s**" % ttf[1]
                                 posicao += "\nprevisao: **%s**" % ttf[0]
                                 # since we're adding decorrido here, reset the one
@@ -505,10 +516,15 @@ class jobCards:
                         # the job has being deleted from the original folder
                         else:
                             # theres no other path for the JOB in the LTO
-                            posicao = "**terminado - %s**" % self.labelLTO
+                            posicao = "**terminado**"
+                            extra = "bakup: **terminado - %s**" % self.labelLTO
+
 
             # after setting the posicao variable, we use it to define extra
             # information to the card, like icons and stuff...
+            if 'terminad' in extra:
+                extra += ' <img src="https://thumbs.gfycat.com/ShyCautiousAfricanpiedkingfisher-size_restricted.gif" width=12 height=12>\n'
+
             if 'esperando' in posicao:
                 # extra='<img src="%s" width=200 height=70>' % gifs['esperando'][random.randint(0, len(gifs['esperando'])-1)]
                 self.gif_counter['esperando'] += 1
@@ -523,9 +539,6 @@ class jobCards:
             elif 'apagar' in posicao:
                 posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
 
-            elif 'terminado' in posicao:
-                posicao += ' <img src="https://thumbs.gfycat.com/ShyCautiousAfricanpiedkingfisher-size_restricted.gif" width=12 height=12>'
-
             elif 'parado' in posicao:
                 posicao += ' <img src="https://static.wixstatic.com/media/5c6573_1072137d8e4d4d60ab1a91a0e861da09~mv2.gif" width=80 height=16>'
 
@@ -538,6 +551,8 @@ class jobCards:
                 extra += '<img src="http://www.netanimations.net/animated-roped-off-construction-barracades.gif" width=200 height=50>'
             # elif 'producao' in posicao:
             #     posicao += ' <img src="https://www.shopitcommerce.com/wp-content/uploads/2019/03/production-line-boxes.gif" width=200 height=30>'
+
+
 
             # set the font color of the path in the card, to make it easier to
             # identify what storage the job is in.
@@ -553,7 +568,7 @@ class jobCards:
             # now, we can add extra information that has being kept from the
             # card title, which was added at some point.
             if _decorrido:
-                extra = '\n'.join([_decorrido[0], extra])
+                extra = '\n'.join([extra.strip(), _decorrido[0]])
 
             # construct card title string here
             title="**%s**" % os.path.basename(p)
