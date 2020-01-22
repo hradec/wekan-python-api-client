@@ -96,6 +96,9 @@ class Cardslist:
         # return the newly created card
         return self.get_cards( id['_id'] )
 
+
+
+
 class Card:
     def __init__(self, api, cardslist, card_data):
         self.api = api
@@ -145,8 +148,34 @@ class Card:
                 print "---->",id
 
         except:
+            print "ERROR: COULD NOT UPDATE -",self.data['title']
             return False
         return True
+
+    def archive(self, **args):
+
+        self.data['archived'] = True
+
+        try:
+            id = self.api.api_call(
+                "/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id),
+            data=self.data, params=True)
+            # print "ARCHIVED CARD",self.data['title'].split('\n')[0]
+
+        except:
+            print "ERROR: COULD NOT ARCHIVE -",self.data['title']
+            return False
+        return True
+
+
+    def delete(self,  user_id=None):
+        if not user_id:
+            user_id = self.api.user_id
+        return self.api.api_call(
+            "/api/boards/{}/lists/{}/cards/{}".format(self.cardslist.board.id, self.cardslist.id, self.id),
+            data={"authorId": user_id},
+            delete=True
+        )
 
     def pprint(self, indent=0):
         pprint = "{}- {}".format("  " * indent, self.title)

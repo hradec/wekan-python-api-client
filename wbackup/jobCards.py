@@ -24,7 +24,7 @@ class jobCards:
     gif_counter={
         'esperando' : 0,
     }
-    def __init__( self, board = 'BACKUP' ):
+    def __init__( self, board = 'BACKUP', justCards=False ):
         self.api = wbackup.api()
         # grab all cards form the weekan BACKUP board and store in hierarquical dict "d"
         # and a cards dictionary
@@ -37,48 +37,59 @@ class jobCards:
         # if a job already has a card!
         self.j=''.join(self.jobs)
 
-        # gather information from the storages
-        self.storages = wbackup.getStoragesInfo()
+        if not justCards:
+            # gather information from the storages
+            self.storages = wbackup.getStoragesInfo()
 
-        # gather information from the LTO machine
-        self.ltoBackup = wbackup.runningLTO()
-        print self.ltoBackup
-        self.ltoFreeSpace = wbackup.freeSpace( '/LTO' )
-        self.ltoLS = wbackup.lsLTO()
-        self.labelLTO = wbackup.labelLTO()
+            # gather information from the LTO machine
+            self.ltoBackup = wbackup.runningLTO()
+            # print self.ltoBackup
+            self.ltoFreeSpace = wbackup.freeSpace( '/LTO' )
+            self.ltoLS = wbackup.lsLTO()
+            self.labelLTO = wbackup.labelLTO()
 
-        # find all jobs is all paths, and return a dictionary with job names as keys
-        # and all paths for the job as a list.
-        self.all_jobs = wbackup.findAllJobs(self.ltoLS)
-        self.toRemove = wbackup.toRemove()
-        self.paths=[]
+            # find all jobs is all paths, and return a dictionary with job names as keys
+            # and all paths for the job as a list.
+            self.all_jobs = wbackup.findAllJobs(self.ltoLS)
+            self.toRemove = wbackup.toRemove()
+            self.paths=[]
 
-        # sort the jobs just because...
-        self.pode_apagar = []
-        self.repetidos_sorted = self.all_jobs.keys()
-        self.repetidos_sorted.sort()
-        self.lto_total = 0
+            # sort the jobs just because...
+            self.pode_apagar = []
+            self.repetidos_sorted = self.all_jobs.keys()
+            self.repetidos_sorted.sort()
+            self.lto_total = 0
 
-        # sort all paths of a job once
-        for job in self.repetidos_sorted:
-            self.all_jobs[job].sort()
+            # sort all paths of a job once
+            for job in self.repetidos_sorted:
+                self.all_jobs[job].sort()
 
-        # initialize lists dict
-        self._lists = {}
-        self._lists_clean = {}
-        for job in self.keys():
-            _card = self._cards(job)
-            if _card:
-                if _card.cardslist.title not in self._lists:
-                    self._lists[_card.cardslist.title] = {}
-                self._lists[_card.cardslist.title][job] = _card
-                if 'livre' not in job:
-                    if _card.cardslist.title not in self._lists_clean:
-                        self._lists_clean[_card.cardslist.title] = {}
-                    self._lists_clean[_card.cardslist.title][job] = _card
-                    # keep data that is in the card title
-                    # inside attrs disctionary in the card object
-                    self._all_attrs( _card )
+            # initialize lists dict
+            self._lists = {}
+            self._lists_clean = {}
+            for job in self.keys():
+                _card = self._cards(job)
+                if _card:
+                    if _card.cardslist.title not in self._lists:
+                        self._lists[_card.cardslist.title] = {}
+                    self._lists[_card.cardslist.title][job] = _card
+                    if 'livre' not in job:
+                        if _card.cardslist.title not in self._lists_clean:
+                            self._lists_clean[_card.cardslist.title] = {}
+                        self._lists_clean[_card.cardslist.title][job] = _card
+                        # keep data that is in the card title
+                        # inside attrs disctionary in the card object
+                        self._all_attrs( _card )
+
+    # remove wrongly duplicated cards on the same list.
+    def _cards_remove_duplicated(self, job):
+        _card = self.cards[ job ]
+
+        if type(_card) == type([]):
+            if len(_card)>1:
+                print job, len(_card)
+                for n in _card[10:]:
+                    print n.id, n.modify( archived=True )
 
     # only return cards of BKP lists which the tape is inserted
     def _cards( self, job ):

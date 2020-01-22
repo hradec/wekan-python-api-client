@@ -33,6 +33,7 @@ def rsync( source, target ):
         card
     )
     # check if rsync is already running
+    print "backup %s to %s" % (source, target)
     if not wbackup.moving( '/tmp/move_.*.log' ):
         print os.popen(_cmd).readlines()
 
@@ -41,10 +42,11 @@ def rsync( source, target ):
 # storages
 for storage in wbackup.storages:
     if not 'JOBS' in storage:
-      if 'LIZARD' in storage or 'BTR10TB' in storage:
+      if 'LIZARD' in storage or 'BTRFS10TB' in storage:
         for list in [ x for x in jobs.lists() if storage in x ]:
             cards = jobs.lists()[list]
             for card in cards:
+                print card, len(alljobs[card])
                 log = '/tmp/move_%s.log' % card
 
                 # if the job exists only in one storage, check if it fits
