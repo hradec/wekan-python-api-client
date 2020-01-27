@@ -96,6 +96,7 @@ if hasTapeLTO and not runningLTO:
                     wbackup.removeRsyncLogLTO( path )
                     doBackup = True
 
+		print "doBackup:", doBackup, result
                 if doBackup:
                     backup = cmd % (
                         bpath,
@@ -103,6 +104,7 @@ if hasTapeLTO and not runningLTO:
                         path, bpath, bpath,
                         bpath,
                     )
+                    print backup
                     print 'backing up %s...' % bpath,
                     sys.stdout.flush()
                     log = wbackup.sshLTO( backup, timeout=0, error='2>&1' )

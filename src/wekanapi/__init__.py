@@ -4,7 +4,8 @@ import multiprocessing
 _LOCK = multiprocessing.Lock()
 
 class WekanApi:
-    def api_call(self, url, data=None, authed=True, params=None):
+    def api_call(self, url, data=None, authed=True, params=None, delete=None):
+        self.session = requests.Session()
         if data is None and params is None:
             api_response = self.session.get(
                 "{}{}".format(self.api_url, url),
@@ -12,8 +13,18 @@ class WekanApi:
                 proxies=self.proxies
             )
         else:
+            # delete
+            if delete:
+                _LOCK.acquire( timeout=5000 )
+                api_response = self.session.delete(
+                    "{}{}".format(self.api_url, url),
+                    data=data,
+                    headers={"Authorization": "Bearer {}".format(self.token)} if authed else {},
+                    proxies=self.proxies
+                )
+                _LOCK.release()
             # modify
-            if params:
+            elif params:
                 if data:
                     # print 1
                     _LOCK.acquire( timeout=5000 )
@@ -50,12 +61,12 @@ class WekanApi:
                     proxies=self.proxies
                 )
                 _LOCK.release()
+        del self.session
         return api_response.json()
 
     def __init__(self, api_url, credentials, proxies=None):
         if proxies is None:
             proxies = {}
-        self.session = requests.Session()
         self.proxies = proxies
         self.api_url = api_url
         api_login = self.api_call("/users/login", data=credentials, authed=False)

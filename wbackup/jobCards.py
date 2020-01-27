@@ -24,7 +24,7 @@ class jobCards:
     gif_counter={
         'esperando' : 0,
     }
-    def __init__( self, board = 'BACKUP' ):
+    def __init__( self, board = 'BACKUP', justCards=False ):
         self.api = wbackup.api()
         # grab all cards form the weekan BACKUP board and store in hierarquical dict "d"
         # and a cards dictionary
@@ -37,48 +37,59 @@ class jobCards:
         # if a job already has a card!
         self.j=''.join(self.jobs)
 
-        # gather information from the storages
-        self.storages = wbackup.getStoragesInfo()
+        if not justCards:
+            # gather information from the storages
+            self.storages = wbackup.getStoragesInfo()
 
-        # gather information from the LTO machine
-        self.ltoBackup = wbackup.runningLTO()
-        print self.ltoBackup
-        self.ltoFreeSpace = wbackup.freeSpace( '/LTO' )
-        self.ltoLS = wbackup.lsLTO()
-        self.labelLTO = wbackup.labelLTO()
+            # gather information from the LTO machine
+            self.ltoBackup = wbackup.runningLTO()
+            # print self.ltoBackup
+            self.ltoFreeSpace = wbackup.freeSpace( '/LTO' )
+            self.ltoLS = wbackup.lsLTO()
+            self.labelLTO = wbackup.labelLTO()
 
-        # find all jobs is all paths, and return a dictionary with job names as keys
-        # and all paths for the job as a list.
-        self.all_jobs = wbackup.findAllJobs(self.ltoLS)
-        self.toRemove = wbackup.toRemove()
-        self.paths=[]
+            # find all jobs is all paths, and return a dictionary with job names as keys
+            # and all paths for the job as a list.
+            self.all_jobs = wbackup.findAllJobs(self.ltoLS)
+            self.toRemove = wbackup.toRemove()
+            self.paths=[]
 
-        # sort the jobs just because...
-        self.pode_apagar = []
-        self.repetidos_sorted = self.all_jobs.keys()
-        self.repetidos_sorted.sort()
-        self.lto_total = 0
+            # sort the jobs just because...
+            self.pode_apagar = []
+            self.repetidos_sorted = self.all_jobs.keys()
+            self.repetidos_sorted.sort()
+            self.lto_total = 0
 
-        # sort all paths of a job once
-        for job in self.repetidos_sorted:
-            self.all_jobs[job].sort()
+            # sort all paths of a job once
+            for job in self.repetidos_sorted:
+                self.all_jobs[job].sort()
 
-        # initialize lists dict
-        self._lists = {}
-        self._lists_clean = {}
-        for job in self.keys():
-            _card = self._cards(job)
-            if _card:
-                if _card.cardslist.title not in self._lists:
-                    self._lists[_card.cardslist.title] = {}
-                self._lists[_card.cardslist.title][job] = _card
-                if 'livre' not in job:
-                    if _card.cardslist.title not in self._lists_clean:
-                        self._lists_clean[_card.cardslist.title] = {}
-                    self._lists_clean[_card.cardslist.title][job] = _card
-                    # keep data that is in the card title
-                    # inside attrs disctionary in the card object
-                    self._all_attrs( _card )
+            # initialize lists dict
+            self._lists = {}
+            self._lists_clean = {}
+            for job in self.keys():
+                _card = self._cards(job)
+                if _card:
+                    if _card.cardslist.title not in self._lists:
+                        self._lists[_card.cardslist.title] = {}
+                    self._lists[_card.cardslist.title][job] = _card
+                    if 'livre' not in job:
+                        if _card.cardslist.title not in self._lists_clean:
+                            self._lists_clean[_card.cardslist.title] = {}
+                        self._lists_clean[_card.cardslist.title][job] = _card
+                        # keep data that is in the card title
+                        # inside attrs disctionary in the card object
+                        self._all_attrs( _card )
+
+    # remove wrongly duplicated cards on the same list.
+    def _cards_remove_duplicated(self, job):
+        _card = self.cards[ job ]
+
+        if type(_card) == type([]):
+            if len(_card)>1:
+                print job, len(_card)
+                for n in _card[10:]:
+                    print n.id, n.modify( archived=True )
 
     # only return cards of BKP lists which the tape is inserted
     def _cards( self, job ):
@@ -92,7 +103,7 @@ class jobCards:
                 # we return just the first card, since we shouldn't have more than one
                 # card for the same job on the same tape!
                 _card = cards[0]
-                print job, _card
+                #print job, _card
 
         # if its a card in a BKP list that is not the tape in the LTO drive,
         # ignore it! This should speed up the run since we won't process
@@ -213,7 +224,7 @@ class jobCards:
         except: jobNumber = 99999999
         if jobNumber < 9000 and jobNumber > 0:
           # if jobNumber==621:
-            print p
+            #print p
 
             # get the title of the card, if its already exist
             card_title = ""
@@ -360,18 +371,21 @@ class jobCards:
                     label = _card.cardslist.title.split()[-1]
 
                     storage = [x for x in wbackup.storages if x in _card.list.title]
-                    target = '/'.join([ wbackup.storages[storage[0]], p ])
+                    if wbackup.storages[storage[0]] in p:
+                        target=p
+                    else:
+                        target = '/'.join([ wbackup.storages[storage[0]], p ])
                     percentage = wbackup.copiedPercentage( p, target )
-                    print p, target,  percentage
+                    #print p, target,  percentage
 
                     paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
                     paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
-                    print paths_in_label
+                    #print paths_in_label
                     extra = ''
                     if paths_in_label:
                         result = wbackup.checkRsyncLog( p )
                         vezes = len(result)
-                        print p,vezes
+                        #print p,vezes
                         if len( self.all_jobs[job] )>1:
                             posicao = "**movendo...**"
                             if percentage > 99.0:
@@ -411,13 +425,13 @@ class jobCards:
                                 extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
                             else:
                                 if wbackup.moving( '/tmp/move_.*.log' ):
-                                    print wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' )
+                                    #print wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' )
                                     if wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' ):
                                         storage = [x for x in wbackup.storages if x in _card.list.title]
                                         if storage:
                                             posicao  = "**movendo... %3.2f%%**" % (percentage)
                                         ttf = wbackup.copyTimeToFinish( p, returnAsString = True )
-                                        print ttf
+                                        #print ttf
                                         if ttf[0]:
                                             posicao += "\ndecorrido: **%s**" % ttf[1]
                                             posicao += "\nprevisao: **%s**" % ttf[0]
@@ -440,12 +454,12 @@ class jobCards:
                         # TODO: write the code to start rsync when cards have "esperando..." in it, and are in a BKP* list
                         if self.labelLTO in _card.cardslist.title:
                             tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
-                            print tailLog
+                            #print tailLog
                             if 'JOB NAO CABE NA FITA' in tailLog:
                                 posicao += '\n<font color="red"> %s </font>' % tailLog
 
                     # if the path is being copied over right now... (self.ltoBackup tells us that!)
-                    print os.path.basename(p) in self.ltoBackup, os.path.basename(p), self.ltoBackup
+                    #print os.path.basename(p) in self.ltoBackup, os.path.basename(p), self.ltoBackup
                     if os.path.basename(p) in self.ltoBackup:
                         posicao="**movendo para o LTO...**"
                         # if the job exists in the /LTO folder, we can check the percentage
@@ -612,7 +626,7 @@ class jobCards:
             ltoList = [x for x in self.d['BACKUP'].keys() if self.labelLTO in x]
             # if the current TAPE name exists in the board as a list
             if ltoList:
-                print self.labelLTO, self.ltoFreeSpace['free']
+                #print self.labelLTO, self.ltoFreeSpace['free']
                 list = self.d['BACKUP'][self.labelLTO][".class"]
                 if 'BKP' in  list.title or 'EXT' in  list.title:
                     wbackup.updateListWithFreeSpace( self.labelLTO, self.ltoFreeSpace )

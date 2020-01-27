@@ -12,7 +12,7 @@ from jobCards import jobCards
 # this system assumes LTFS is used with the tapes, and it
 # fully installed in the server.
 # by default, /LTO is the mount point.
-lto_ssh='ssh root@nexenta.local'
+lto_ssh='ssh root@192.168.0.16'
 
 # speeds up ssh connection a bit
 os.environ['SSH_AUTH_SOCK'] = ''
@@ -222,7 +222,7 @@ def countFilesRsyncLogLTO( path, lto_mount_path = '/LTO' ):
     # if not os.path.exists(l) or ( ( time.time() - int(os.stat(l)[-1]) ) /60 /60 ) > 24  or  os.stat( l )[6] == 0:
     cmd = 'find %s/%s/ -type f 2>/dev/null | wc -l' % (lto_mount_path, bpath)
     tmp = sshLTO(cmd).strip()
-    print cmd,'[',tmp,']'
+    #print cmd,'[',tmp,']'
     fromFS = float( tmp )
     return fromFS
 
@@ -342,7 +342,7 @@ def checkRsyncLogLTO( path,  lto_mount_path='/LTO', log='/tmp/backup_%s.log'):
     if lto_mount_path:
         ret =  [ x for x in sshLTO(check_cmd).split('\n') if x.strip() ]
     else:
-        print check_cmd
+        #print check_cmd
         ret =  [ x for x in os.popen(check_cmd) if x.strip() ]
     return ret
 
