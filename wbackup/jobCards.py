@@ -95,21 +95,26 @@ class jobCards:
     def _cards( self, job ):
         _card = self.cards[ job ]
 
-        if type(_card) == type([]):
-            cards = [ x for x in _card if 'BKP' in  x.cardslist.title and self.labelLTO in x.cardslist.title ]
-            if not cards:
-                _card = None
-            else:
-                # we return just the first card, since we shouldn't have more than one
-                # card for the same job on the same tape!
-                _card = cards[0]
-                print job, _card
+        # return all if no tape inserted
+        if not self.labelLTO.strip():
+            if type(_card) == type([]):
+                    _card = _card[0]
+        else:
+            if type(_card) == type([]):
+                cards = [ x for x in _card if 'BKP' in  x.cardslist.title and (self.labelLTO and self.labelLTO in x.cardslist.title) ]
+                if not cards:
+                    _card = None
+                else:
+                    # we return just the first card, since we shouldn't have more than one
+                    # card for the same job on the same tape!
+                    _card = cards[0]
+                    # print job, _card
 
-        # if its a card in a BKP list that is not the tape in the LTO drive,
-        # ignore it! This should speed up the run since we won't process
-        # cards in all BKP lists, but the one with the tape in the drive!
-        if _card and 'BKP' in  _card.cardslist.title and self.labelLTO not in  _card.cardslist.title and '/LTO' in _card.title:
-            _card = None
+            # if its a card in a BKP list that is not the tape in the LTO drive,
+            # ignore it! This should speed up the run since we won't process
+            # cards in all BKP lists, but the one with the tape in the drive!
+            if _card and 'BKP' in  _card.cardslist.title and self.labelLTO not in  _card.cardslist.title and '/LTO' in _card.title:
+                _card = None
 
         return _card
 
@@ -224,7 +229,7 @@ class jobCards:
         except: jobNumber = 99999999
         if jobNumber < 9000 and jobNumber > 0:
           # if jobNumber==621:
-            print p
+            # print p
 
             # get the title of the card, if its already exist
             card_title = ""
@@ -234,7 +239,7 @@ class jobCards:
                 # if the card is in a BKP list, but the list doesn't have the name of the
                 # inserted tape, _card will be None!
                 if not _card:
-                    print "card in bkp, but tape not inserted, so create a new card for:",p
+                    print "card in bkp, but tape not inserted, so create a new card for:",p, '['+self.labelLTO+']'
                     hasCard = False
                 else:
                     card_title = _card.data['title'].strip()
@@ -371,18 +376,21 @@ class jobCards:
                     label = _card.cardslist.title.split()[-1]
 
                     storage = [x for x in wbackup.storages if x in _card.list.title]
-                    target = '/'.join([ wbackup.storages[storage[0]], p ])
+                    if wbackup.storages[storage[0]] in p:
+                        target=p
+                    else:
+                        target = '/'.join([ wbackup.storages[storage[0]], p ])
                     percentage = wbackup.copiedPercentage( p, target )
-                    print p, target,  percentage
+                    # print p, target,  percentage
 
                     paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
                     paths_not_in_label = [ x for x in self.all_jobs[job] if label not in x and label.lower() not in x and '/LTO' not in x ]
-                    print paths_in_label
+                    # print paths_in_label
                     extra = ''
                     if paths_in_label:
                         result = wbackup.checkRsyncLog( p )
                         vezes = len(result)
-                        print p,vezes
+                        # print p,vezes
                         if len( self.all_jobs[job] )>1:
                             posicao = "**movendo...**"
                             if percentage > 99.0:
@@ -422,13 +430,13 @@ class jobCards:
                                 extra += '**%s para comecar...**\n' % self.strtime( wbackup.move_delay - elapsed )
                             else:
                                 if wbackup.moving( '/tmp/move_.*.log' ):
-                                    print wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' )
+                                    # print wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' )
                                     if wbackup.moving( _card.attr['path'] + '.*/tmp/move_.*.log' ):
                                         storage = [x for x in wbackup.storages if x in _card.list.title]
                                         if storage:
                                             posicao  = "**movendo... %3.2f%%**" % (percentage)
                                         ttf = wbackup.copyTimeToFinish( p, returnAsString = True )
-                                        print ttf
+                                        # print ttf
                                         if ttf[0]:
                                             posicao += "\ndecorrido: **%s**" % ttf[1]
                                             posicao += "\nprevisao: **%s**" % ttf[0]
@@ -451,12 +459,12 @@ class jobCards:
                         # TODO: write the code to start rsync when cards have "esperando..." in it, and are in a BKP* list
                         if self.labelLTO in _card.cardslist.title:
                             tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
-                            print tailLog
+                            # print tailLog
                             if 'JOB NAO CABE NA FITA' in tailLog:
                                 posicao += '\n<font color="red"> %s </font>' % tailLog
 
                     # if the path is being copied over right now... (self.ltoBackup tells us that!)
-                    print os.path.basename(p) in self.ltoBackup, os.path.basename(p), self.ltoBackup
+                    # print os.path.basename(p) in self.ltoBackup, os.path.basename(p), self.ltoBackup
                     if os.path.basename(p) in self.ltoBackup:
                         posicao="**movendo para o LTO...**"
                         # if the job exists in the /LTO folder, we can check the percentage
@@ -623,7 +631,7 @@ class jobCards:
             ltoList = [x for x in self.d['BACKUP'].keys() if self.labelLTO in x]
             # if the current TAPE name exists in the board as a list
             if ltoList:
-                print self.labelLTO, self.ltoFreeSpace['free']
+                # print self.labelLTO, self.ltoFreeSpace['free']
                 list = self.d['BACKUP'][self.labelLTO][".class"]
                 if 'BKP' in  list.title or 'EXT' in  list.title:
                     wbackup.updateListWithFreeSpace( self.labelLTO, self.ltoFreeSpace )
