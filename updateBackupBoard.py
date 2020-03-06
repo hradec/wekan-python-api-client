@@ -27,19 +27,22 @@ else:
     j = jobs.jobsOnDisk()
     j.sort()
     def jobs_update( n ):
-	print n
-	try:
+    	print n
+    	try:
         	jobs.update( n )
-	except:
-		print "ERROR : ",n
-	return (jobs.toRemove, jobs.pode_apagar)
+    	except:
+    		print "ERROR : ",n
+    	return (jobs.toRemove, jobs.pode_apagar)
 
     jobs.toRemove=[]
     jobs.pode_apagar=[]
     p = Pool(20)
     for each in p.map( jobs_update, j ):
-	jobs.toRemove += each[0]
-	jobs.pode_apagar += each[1]
+    	jobs.toRemove += each[0]
+    	jobs.pode_apagar += each[1]
+
+jobs.toRemove = list(set(jobs.toRemove))
+jobs.pode_apagar = list(set(jobs.pode_apagar))
 
 # variables below only fill up after calling update on cards.
 # jobs that exist in multiple storages!!
@@ -76,7 +79,8 @@ if jobs.pode_apagar:
         if '/atomo/jobs' in j[0:12]:
             deleted = '/atomo/jobs/.deleted_jobs/'
             for another in [ x for x in jobs.all_jobs[os.path.basename(j)] if '/atomo/jobs' not in x[0:12] ]:
-                print '\tsudo mv %s\t %s  && sudo ln -s %s\t/atomo/jobs/' % (j, deleted, os.path.dirname(another)+'/'+os.path.basename(j) )
+                if '/LTO' not in  another:
+                    print '\tsudo mv %s\t %s  && sudo ln -s %s\t/atomo/jobs/' % (j, deleted, os.path.dirname(another)+'/'+os.path.basename(j) )
 
 
 print
