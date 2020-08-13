@@ -622,7 +622,8 @@ class jobCards:
                             l.add_card(title)
                     else:
                         for l in b.get_cardslists('JOBS'):
-                            l.add_card(title)
+                             print "WARNING : add_card(%s)" % title.split()
+                             l.add_card(title)
 
     def updateLTOfreeSpaceCard(self):
         # update the free space available in free space card

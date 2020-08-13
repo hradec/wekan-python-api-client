@@ -26,11 +26,11 @@ alljobs = wbackup.findAllJobs()
 
 def rsync( source, target ):
     card = os.path.basename(source)
+    print source, target, card, cmd
     _cmd = cmd % (
         card,
         source, target, card,
-        source, target, card,
-        card
+        source, target, card, card
     )
     # check if rsync is already running
     print "backup %s to %s" % (source, target)
@@ -95,6 +95,16 @@ for storage in wbackup.storages:
                         rsync( source, target )
                     else:
                         print 'verificado %d vezes.' % len( result )
+			if len(result)>=5:
+				source_path = os.path.dirname(source.rstrip('/'))
+				target_path = os.path.dirname(target.rstrip('/'))
+				if source_path != target_path:
+					_cmd = [
+						"mv %s %s/.deleted/" % (source, source_path),
+						"ln -s %s %s" % (target, source)
+					]
+					_cmd=' && '.join(_cmd)
+					print _cmd
 
 
 

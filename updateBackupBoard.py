@@ -1,6 +1,7 @@
 #!/bin/python2
 
 import sys, os, time
+#sys.exit(0)
 import wbackup
 
 from pprint import pprint as pp
@@ -9,7 +10,6 @@ import random, time
 import os
 import math
 from multiprocessing import Pool
-
 
 wbackup.runOnlyOnce( __file__ )
 
@@ -36,8 +36,9 @@ else:
 
     jobs.toRemove=[]
     jobs.pode_apagar=[]
-    p = Pool(20)
+    p = Pool(2)
     for each in p.map( jobs_update, j ):
+        print each[0]
     	jobs.toRemove += each[0]
     	jobs.pode_apagar += each[1]
 
