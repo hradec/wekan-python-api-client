@@ -8,7 +8,7 @@ from pprint import pprint as pp
 from glob import glob
 import random, time
 import os
-import math
+import math, traceback
 from multiprocessing import Pool
 
 wbackup.runOnlyOnce( __file__ )
@@ -32,11 +32,12 @@ else:
         	jobs.update( n )
     	except:
     		print "ERROR : ",n
+		print traceback.print_exc()
     	return (jobs.toRemove, jobs.pode_apagar)
 
     jobs.toRemove=[]
     jobs.pode_apagar=[]
-    p = Pool(2)
+    p = Pool(10)
     for each in p.map( jobs_update, j ):
         print each[0]
     	jobs.toRemove += each[0]
@@ -74,14 +75,38 @@ if jobs.pode_apagar:
             print '\tsudo rm -rf %s' % j
 
 # jobs backed up and verified to another storage that can be deleted
-if jobs.pode_apagar:
+#if jobs.pode_apagar:
+#    print "\nThe following jobs are on another storage, and can be deleted:"
+#    for j in jobs.pode_apagar:
+#        if '/.LIZARDFS/' not in j[0:12]:
+#	    basePath = j.split('atomo/')[0].strip('/')
+#            deleted = '/%s/atomo/jobs/.deleted_jobs/' % basePath
+#            for another in [ x for x in jobs.all_jobs[os.path.basename(j)] if '/.LIZARDFS/' in x[0:12] ]:
+#                if '/LTO' not in  another:
+#                    print '\tsudo mv %s\t %s  && sudo ln -s %s\t/atomo/jobs/' % (j, deleted, os.path.dirname(another)+'/'+os.path.basename(j) )
+
+
+
+# variables below only fill up after calling update on cards.
+# jobs that exist in multiple storages!!
+if jobs.all_jobs.keys():
     print "\nThe following jobs are on another storage, and can be deleted:"
-    for j in jobs.pode_apagar:
-        if '/atomo/jobs' in j[0:12]:
-            deleted = '/atomo/jobs/.deleted_jobs/'
-            for another in [ x for x in jobs.all_jobs[os.path.basename(j)] if '/atomo/jobs' not in x[0:12] ]:
-                if '/LTO' not in  another:
-                    print '\tsudo mv %s\t %s  && sudo ln -s %s\t/atomo/jobs/' % (j, deleted, os.path.dirname(another)+'/'+os.path.basename(j) )
+    keys = jobs.all_jobs.keys()
+    keys.sort()
+    for n in keys:
+        paths = [ x for x in jobs.all_jobs[n] if '/LTO/' not in x]
+        if len(paths)==2:
+            cmd = "\tsudo mv %s\t %s && ( sudo unlink /atomo/jobs/%s ; sudo ln -s %s \t/atomo/jobs/ )" % (
+                  paths[1],
+		  os.path.dirname(paths[1].rstrip('/'))+'/.deleted_jobs/',
+                  os.path.basename(paths[0]),
+                  paths[0]
+            )
+            print cmd
+        elif len(paths)>2:
+            print "\tNot sure what to do with job %s because it has %s paths:" % (n, len(paths))
+            for j in paths:
+                print "\t\t"+j
 
 
 print

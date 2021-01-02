@@ -30,7 +30,7 @@ _api = None
 def api():
     global _api
     if not _api:
-        _api = WekanApi("http://192.168.0.37:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
+        _api = WekanApi("http://192.168.0.36:8080/wekan", eval(''.join(open(os.path.dirname(__file__)+"/userpasswd.txt").readlines())), )
     return _api
 
 # check if we have a moving happening already
@@ -191,15 +191,15 @@ def labelLTO( lto_mount_path = '/LTO' ):
 
 # create and update an information card in a list!
 # the card title needs an ID to identify it for editing
-def msgCard( listName, id, message, type=None ):
+def msgCard( listName, id, message, _type=None ):
     getCards_result = getCards()
     d     = getCards_result['data']
     cards = getCards_result['cards']
     list = d['BACKUP'][listName][".class"]
     b = list.board
-    if type == 'ERROR':
+    if _type == 'ERROR':
         title = '<font color="red">%s</font>' % message
-    elif type == 'WARNING':
+    elif _type == 'WARNING':
         title = '<font color="orange">%s</font>' % message
     else:
         title = '<font color="green">%s</font>' % message
@@ -207,7 +207,11 @@ def msgCard( listName, id, message, type=None ):
     title = '**%s: %s**' % (id.upper(), title)
     msgCard = [ x for x in d[b.title][list.title].keys() if id.lower() in x.split('\n')[0].lower() ]
     if msgCard:
-        cards[msgCard[0].replace('*','')].modify( title=title )
+        _c = cards[msgCard[0].replace('*','')]
+	if type(_c) != type([]):
+	    _c = [_c]
+	for n in _c:
+	    n.modify( title=title )
     else:
         list.add_card( title )
 
@@ -445,6 +449,7 @@ def getCards( board = 'BACKUP' ):
     d = {}
     cards = {}
     for b  in api().get_user_boards(board):
+      if b.title == board:
         d[b.title] = {}
         d[b.title][".class"] = b
         for list in b.get_cardslists():
@@ -565,8 +570,14 @@ def updateListWithFreeSpace( list_name, zfree, getCards_result=None ):
 
     spaceCard = [ x for x in d[b.title][list.title].keys() if ' livre ' in x.split('\n')[0].lower() ]
     if spaceCard:
-        if title != cards[spaceCard[0].replace('*','')].data['title']:
-            cards[spaceCard[0].replace('*','')].modify( title=title )
+	_c = cards[spaceCard[0].replace('*','')]
+	if type(_c) != type([]):
+	    _c = [_c]
+
+	print [ x.data['title'] for x in _c ]
+	for n in _c:
+            if title != n.data['title']:
+               cards[spaceCard[0].replace('*','')].modify( title=title )
     else:
         list.add_card( title )
 

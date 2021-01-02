@@ -35,7 +35,7 @@ def rsync( source, target ):
     # check if rsync is already running
     print "backup %s to %s" % (source, target)
     if not wbackup.moving( '/tmp/move_.*.log' ):
-        print os.popen(_cmd).readlines()
+        os.system(_cmd)
 
 
 
@@ -49,8 +49,21 @@ for storage in wbackup.storages:
                 print card, len(alljobs[card])
                 log = '/tmp/move_%s.log' % card
 
+                source = cards[card].attr['path']
+                target = '/'.join([ wbackup.storages[storage], 'atomo', source.split('atomo')[-1] ])
+                target = target.replace('//','/')
+
+
                 # if the job exists only in one storage, check if it fits
                 if len(alljobs[card])<2:
+                  print source, target, source == target
+                  if source == target:
+                      if os.path.exists( log ):
+                          os.system('mkdir -p /tmp/move_log_archive/')
+                          os.system('mv %s /tmp/move_log_archive/' % log)
+                          #os.remove( log )
+                      continue
+                  else:
                     fit = wbackup.checkIfFits(
                         # cards[card].attr['disco'],
                         wbackup.storages[storage],
@@ -73,9 +86,6 @@ for storage in wbackup.storages:
                     os.system( 'echo "START_TIME: %s" > %s' % (startTime, log) )
                 elapsed = Decimal(time.time()) - startTime
 
-                source = cards[card].attr['path']
-                target = '/'.join([ wbackup.storages[storage], source ])
-                target = target.replace('//','/')
                 if elapsed > wbackup.move_delay:
                     # check log file in the LTO machine to see if rsync was DONE
                     # susscessfully!

@@ -251,11 +251,21 @@ class jobCards:
             _decorrido  = [ x for x in card_title.split('\n') if 'decorrido' in x ]
             _modificado = [ x for x in card_title.split('\n') if 'modificado' in x ]
 
+#            disco=os.path.dirname(p)
+#            if _disco:
+#                disco = _disco[0].replace('*','').split(':')[-1].split('>')[1].split('<')[0].strip()
+#            if not disco or '/' not in disco or 'font color' in disco:
+#                disco=os.path.dirname(p)
+#            disco_p = '/'.join([disco, os.path.basename(p)])
+
+            disco_p = os.path.realpath("/atomo/jobs/"+os.path.basename(p)).replace('/ZRAID','')
+            disco = os.path.dirname(disco_p)
+
             # calculate size of jobs just once a day!
-            l='/tmp/%s.disk_usage.log' % p.strip('/').replace('/','_')
+            l='/tmp/%s.disk_usage.log' % disco_p.strip('/').replace('/','_')
             if not os.path.exists(l) or ( ( time.time() - int(os.stat(l)[-1]) ) /60 /60 ) > 24  or  os.stat( l )[6] == 0:
                 # if the only path for the job is the LTO...
-                if '/LTO' in p:
+                if '/LTO' in disco_p:
                     tamanho = 0
                     # if we have the size in the card, we don't need to
                     # calculate it from the LTO folder
@@ -267,35 +277,36 @@ class jobCards:
                     # since the size should come from the original folder on disk
                     # for new cards being backed up!
                     if not tamanho:
-                        os.popen( wbackup.lto_ssh+''' "du -shc %s 2>/dev/null" | grep total > %s ''' % ( p, l ) )
+                        os.popen( wbackup.lto_ssh+''' "du -shc %s 2>/dev/null" | grep total > %s ''' % ( disco_p, l ) )
                     # but if we have it already, just re-create the log with it.
                     else:
                         os.popen( '''echo "%s\ttotal" > %s ''' % ( wbackup.convertVtoH(tamanho), l ) )
 
                 # if the job is in a storage other than LTO tape, we have to calculate it!
                 else:
-                    os.popen( 'du -shc %s 2>/dev/null | grep total > %s ' % ( p, l ) )
+                    os.popen( 'du -shc %s 2>/dev/null | grep total > %s ' % ( disco_p, l ) )
 
             # get the last modification date
             lm='/tmp/%s.last_modified.log' % p.strip('/').replace('/','_')
             if not os.path.exists(lm) or ( ( time.time() - int(os.stat(lm)[-1]) ) /60 /60 ) > 24  or  os.stat( lm )[6] == 0:
                 # if the only path for the job is the LTO...
-                if '/LTO' in p:
+                if '/LTO' in disco_p:
                     # and we don't already have the last modification time in the card
                     if not _modificado:
                         # calculate from the TAPE folder
-                        os.popen( wbackup.lto_ssh+''' "find %s -type f -printf '%%T@ %%p\n'" | sort -n | tail -1 2>/dev/null  >  %s ''' % ( p, lm ) )
+                        os.popen( wbackup.lto_ssh+''' "find %s -type f -printf '%%T@ %%p\n'" | sort -n | tail -1 2>/dev/null  >  %s ''' % ( disco_p, lm ) )
                 else:
                     # find the last modification time from the job folder
-                    os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s " % ( p, lm ) )
+                    os.popen( "sudo find %s -type f -printf '%%T@ %%p\n' | sort -n | tail -1 2>/dev/null  >  %s " % ( disco_p, lm ) )
 
             # variables used to construtct the card title!
             size= ''.join(open( l ).readlines()).split()[0].strip()
-            disco=os.path.dirname(p)
             mover=""
             posicao=""
             last_modified=""
             extra=""
+
+
 
             # months is later to write the position string...
             months=0
@@ -355,7 +366,7 @@ class jobCards:
                     if os.path.basename(p) in self.ltoBackup:
                         posicao="**movendo para o LTO...**"
                     else:
-                        wbackup.removeRsyncLogLTO( p )
+                        wbackup.removeRsyncLogLTO( disco_p )
 
                     m = [ x for x in card_title.split('\n') if 'tamanho' in x ]
                     if m:
@@ -376,11 +387,11 @@ class jobCards:
                     label = _card.cardslist.title.split()[-1]
 
                     storage = [x for x in wbackup.storages if x in _card.list.title]
-                    if wbackup.storages[storage[0]] in p:
-                        target=p
+                    if wbackup.storages[storage[0]] in disco_p:
+                        target=disco_p
                     else:
-                        target = '/'.join([ wbackup.storages[storage[0]], p ])
-                    percentage = wbackup.copiedPercentage( p, target )
+                        target = '/'.join([ wbackup.storages[storage[0]], 'atomo',disco_p.split('atomo/')[1] ])
+                    percentage = wbackup.copiedPercentage( disco_p, target )
                     # print p, target,  percentage
 
                     paths_in_label = [ x for x in self.all_jobs[job] if (label in x or label.lower() in x) and '/LTO' not in x ]
@@ -388,7 +399,7 @@ class jobCards:
                     # print paths_in_label
                     extra = ''
                     if paths_in_label:
-                        result = wbackup.checkRsyncLog( p )
+                        result = wbackup.checkRsyncLog( disco_p )
                         vezes = len(result)
                         # print p,vezes
                         if len( self.all_jobs[job] )>1:
@@ -450,7 +461,7 @@ class jobCards:
                                 else:
                                     if 'terminado' in posicao or 'falta' in posicao:
                                         extra += '**comecar...**\n'
-                        # checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
+                        # checkRsyncLogLTO = wbackup.checkRsyncLogLTO( disco_p )
 
                 elif "BKP" in _card.cardslist.title:
                     job_in_the_tape = [ x for x in self.all_jobs[job] if '/LTO' in x[0:6] ]
@@ -458,7 +469,7 @@ class jobCards:
                     if 'esperando...' in card_title:
                         # TODO: write the code to start rsync when cards have "esperando..." in it, and are in a BKP* list
                         if self.labelLTO in _card.cardslist.title:
-                            tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
+                            tailLog = wbackup.checkRsyncLog4ErrorsLTO( disco_p )
                             # print tailLog
                             if 'JOB NAO CABE NA FITA' in tailLog:
                                 posicao += '\n<font color="red"> %s </font>' % tailLog
@@ -470,7 +481,7 @@ class jobCards:
                         # if the job exists in the /LTO folder, we can check the percentage
                         # of files copied over to it.
                         if job_in_the_tape:
-                            percentage = wbackup.copiedPercentageLTO( p )
+                            percentage = wbackup.copiedPercentageLTO( disco_p )
                             posicao  = "**movendo... %3.2f%%**" % (percentage)
                             ttf = wbackup.copyTimeToFinishLTO( p, returnAsString = True )
                             print "wbackup.copyTimeToFinishLTO", ttf
@@ -490,21 +501,21 @@ class jobCards:
                             # count the amount of "result: 0" in the log
                             # which should naively indicate that rsync finished
                             # without error.
-                            checkRsyncLogLTO = wbackup.checkRsyncLogLTO( p )
+                            checkRsyncLogLTO = wbackup.checkRsyncLogLTO( disco_p )
                             vezes = verificarNvezes-len(checkRsyncLogLTO)
                             vezesStr = 'vez'
                             if vezes > 1:
                                 vezesStr = 'vezes'
 
                             if job_in_the_tape:
-                                percentage = wbackup.copiedPercentageLTO( p )
+                                percentage = wbackup.copiedPercentageLTO( disco_p )
 
                             # if the backup is not done, lets try to give some information
                             # in the cards about the reason...
                             if len(checkRsyncLogLTO) < 4 or percentage < 100.0:
                                 # not all files have being copied over to the tape
                                 if percentage < 100.0:
-                                    tailLog = wbackup.checkRsyncLog4ErrorsLTO( p )
+                                    tailLog = wbackup.checkRsyncLog4ErrorsLTO( disco_p )
                                     if tailLog:
                                         posicao = '**esperando... <font color="red">(Erro!)</font>** \n(%3.2f%% feito. Falta %3.2f%%)\n<font color="red"> %s </font>\n' % (
                                             percentage,
@@ -562,9 +573,10 @@ class jobCards:
                 posicao += ' <img src="https://static.wixstatic.com/media/5c6573_1072137d8e4d4d60ab1a91a0e861da09~mv2.gif" width=80 height=16>'
 
             elif 'backup' in posicao.lower():
-                posicao += '   '
-                posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
-                extra += '<img src="https://media0.giphy.com/media/W6AqdGRBUXxSw/giphy.gif" width=200 height=50>'
+                 extra = ' '
+            #    posicao += '   '
+            #    posicao += '<img src="http://www.alpes-maritimes.gouv.fr/var/ezwebin_site/storage/images/media/images/icones/triangle-attention/148314-1-fre-FR/Triangle-Attention_small.gif" width=20 height=20>'
+            #    extra += '<img src="https://media0.giphy.com/media/W6AqdGRBUXxSw/giphy.gif" width=200 height=50>'
 
             elif 'nao cabe' in posicao.lower():
                 extra += '<img src="http://www.netanimations.net/animated-roped-off-construction-barracades.gif" width=200 height=50>'
@@ -617,6 +629,7 @@ class jobCards:
             # or else create a new card
             else:
                 for b  in self.api.get_user_boards('BACKUP'):
+                  if b.title == 'BACKUP':
                     if '/LTO' in disco:
                         for l in b.get_cardslists(self.labelLTO):
                             l.add_card(title)
